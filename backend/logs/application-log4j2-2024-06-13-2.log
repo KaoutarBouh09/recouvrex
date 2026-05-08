@@ -1,0 +1,5 @@
+2024-06-13 05:29:48 [main] INFO  : SPIN-01009 Discovered Spin data format: org.camunda.spin.impl.json.jackson.format.JacksonJsonDataFormat[name = application/json]
+2024-06-13 05:29:48 [main] INFO  : FEEL/SCALA-01001 Spin value mapper detected
+2024-06-13 05:29:48 [main] INFO  : Engine created. [value-mapper: CompositeValueMapper(List(org.camunda.feel.impl.JavaValueMapper@774ea667, org.camunda.spin.plugin.impl.feel.integration.SpinValueMapper@5f0b3abb)), function-provider: org.camunda.bpm.dmn.feel.impl.scala.function.CustomFunctionTransformer@77a3c614, clock: SystemClock, configuration: Configuration(false)]
+2024-06-13 05:29:51 [main] INFO  : CNCT-01004 Discovered provider for connector id 'http-connector' and class 'org.camunda.connect.httpclient.impl.HttpConnectorImpl': 'org.camunda.connect.httpclient.impl.HttpConnectorProviderImpl'
+2024-06-13 05:29:51 [main] INFO  : CNCT-01004 Discovered provider for connector id 'soap-http-connector' and class 'org.camunda.connect.httpclient.soap.impl.SoapHttpConnectorImpl': 'org.camunda.connect.httpclient.soap.impl.SoapHttpConnectorProviderImpl'

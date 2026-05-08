@@ -1,0 +1,8 @@
+2024-06-12 23:51:59 [main] INFO  : EVENTING-001: Initialized Camunda Spring Boot Eventing Engine Plugin.
+2024-06-12 23:51:59 [main] INFO  : EVENTING-003: Task events will be published as Spring Events.
+2024-06-12 23:51:59 [main] INFO  : EVENTING-005: Execution events will be published as Spring Events.
+2024-06-12 23:51:59 [main] INFO  : EVENTING-009: Listeners will not be invoked if a skipCustomListeners API parameter is set to true by user.
+2024-06-12 23:51:59 [main] INFO  : EVENTING-007: History events will be published as Spring events.
+2024-06-12 23:51:59 [main] INFO  : SPIN-01010 Discovered Spin data format provider: org.camunda.spin.impl.json.jackson.format.JacksonJsonDataFormatProvider[name = application/json]
+2024-06-12 23:52:00 [main] INFO  : SPIN-01010 Discovered Spin data format provider: org.camunda.spin.impl.xml.dom.format.DomXmlDataFormatProvider[name = application/xml]
+2024-06-12 23:52:01 [main] INFO  : SPIN-01009 Discovered Spin data format: org.camunda.spin.impl.xml.dom.format.DomXmlDataFormat[name = application/xml]

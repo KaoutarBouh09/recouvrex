@@ -1,0 +1,8 @@
+2024-06-13 05:29:54 [main] INFO  : lazy initialized org.camunda.bpm.spring.boot.starter.webapp.filter.LazyProcessEnginesFilter@3fc1abf
+2024-06-13 05:29:54 [main] INFO  : lazy initialized org.camunda.bpm.spring.boot.starter.webapp.filter.LazySecurityFilter@59f3426f
+2024-06-13 05:29:55 [main] INFO  : Starting ProtocolHandler ["http-nio-9080"]
+2024-06-13 05:29:55 [main] INFO  : Tomcat started on port(s): 9080 (http) with context path ''
+2024-06-13 05:29:55 [main] INFO  : Started RecouvrexApplication in 24.575 seconds (process running for 27.594)
+2024-06-13 05:29:55 [main] INFO  : ENGINE-14014 Starting up the JobExecutor[org.camunda.bpm.engine.spring.components.jobexecutor.SpringJobExecutor].
+2024-06-13 05:29:55 [JobExecutor[org.camunda.bpm.engine.spring.components.jobexecutor.SpringJobExecutor]] INFO  : ENGINE-14018 JobExecutor[org.camunda.bpm.engine.spring.components.jobexecutor.SpringJobExecutor] starting to acquire jobs
+2024-06-13 05:30:49 [http-nio-9080-exec-1] INFO  : Initializing Spring DispatcherServlet 'dispatcherServlet'
