@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-
+import { clearAuthUser } from "src/auth/authUser";
 import { NavLink, useNavigate } from "react-router-dom";
 
 import {
@@ -190,9 +190,10 @@ function HeaderUserbox() {
             color="primary"
             fullWidth
             onClick={() => {
-              keycloak.logout();
+            clearAuthUser();   // ← ajouter cette ligne
+            keycloak.logout();
             }}
-          >
+>
             <LockOpenTwoToneIcon sx={{ mr: 1 }} />
             Se déconnecter
           </Button>

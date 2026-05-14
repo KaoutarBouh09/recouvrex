@@ -16,19 +16,16 @@ import { UserContext } from "./contexts/UserContext";
 import { Profile } from "./models/Profile";
 import { setAuthUser } from "./auth/authUser";
 
-// Utility function to extract roles from Keycloak token and set user profile
-const getRolesAndSetProfile = (tokenParsed: any): Profile | null => {  
+const getRolesAndSetProfile = (tokenParsed: any): Profile | null => {
   const recouvrexAppRoles = tokenParsed?.resource_access?.["recouvrex-app"]?.roles || [];
-  console.log("🚀 ~ getRolesAndSetProfile ~ recouvrexAppRoles:", recouvrexAppRoles)
-  // I know this is maynot be the best practice
+  console.log("🚀 ~ getRolesAndSetProfile ~ recouvrexAppRoles:", recouvrexAppRoles);
   if (recouvrexAppRoles.includes("RECOUVREX_ADMIN")) {
-    return {id:1,profile:'Administrateur'};
+    return { id: 1, profile: "Administrateur" };
   } else if (recouvrexAppRoles.includes("RECOUVREX_REGION_RESPONSABLE")) {
-    return {id:2,profile:'Responsable Region'};
+    return { id: 2, profile: "Responsable Region" };
   } else if (recouvrexAppRoles.includes("RECOUVREX_RECOVERY_AGENT")) {
-    return {id:3,profile:'Agent de recouvrement'};
+    return { id: 3, profile: "Agent de recouvrement" };
   }
-
   return null;
 };
 
@@ -41,14 +38,17 @@ function App() {
 
   const handleOnEvent = async (event, error) => {
     if (event === "onAuthSuccess") {
-      console.log("🚀 ~ handleOnEvent ~ event:", event)
-      
+      console.log("🚀 ~ handleOnEvent ~ event:", event);
+
       if (keycloak.token) {
         setAuthToken(keycloak.token);
-        console.log("your token : " , keycloak.token)
+        console.log("your token : ", keycloak.token);
       } else {
         return;
       }
+
+      // ← Attendre que le token soit propagé dans l'intercepteur Axios
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (keycloak.authenticated) {
         const authenticatedUser: User = {
@@ -59,42 +59,32 @@ function App() {
           lastName: keycloak?.tokenParsed?.family_name ?? "",
           email: keycloak?.tokenParsed?.email ?? "",
           photo: "",
-          nbrCaseAffected: undefined
+          nbrCaseAffected: undefined,
         };
 
-        // Use the utility function to get roles and set profile
-      const userProfile :Profile|null = getRolesAndSetProfile(keycloak.tokenParsed);
-    
-      if (userProfile) {
-        authenticatedUser.profile = userProfile;
-      }
+        const userProfile: Profile | null = getRolesAndSetProfile(keycloak.tokenParsed);
+        if (userProfile) {
+          authenticatedUser.profile = userProfile;
+        }
 
-        // setCurrentUser(authenticatedUser); ----------------
+        console.log("⚠️⚠️authenticatedUser:", authenticatedUser);
 
-        console.log(
-          "⚠️⚠️authenticatedUser:",
-          authenticatedUser
-        );
-
-        // Use the authenticated user to get the user from the database by id
-       
         try {
-          const userData = await getUserByUserName(authenticatedUser.userName);
+          let userData;
 
-          // If the user exists in the database, compare user data
+          // ← Retry si le token n'est pas encore accepté par le backend
+          try {
+            userData = await getUserByUserName(authenticatedUser.userName);
+          } catch (firstError) {
+            console.warn("Premier essai échoué, retry dans 500ms...");
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            userData = await getUserByUserName(authenticatedUser.userName);
+          }
+
           if (userData) {
-            console.log("🚀 ~ handleOnEvent ~ userData:", userData)
-            
-            //set the photo
-            // authenticatedUser.photo = userData.photo;
-            // authenticatedUser.id=userData.id;
-            
-            // authenticatedUser.profile=userData.profile;
-            //set the user authenticated in the context
-            // setCurrentUser(authenticatedUser);
+            console.log("🚀 ~ handleOnEvent ~ userData:", userData);
             setAuthUser(userData);
             setCurrentUser(userData);
-            
 
             if (
               userData.firstName != authenticatedUser.firstName ||
@@ -102,36 +92,27 @@ function App() {
               userData.email != authenticatedUser.email ||
               userData.profile != authenticatedUser?.profile
             ) {
-              // If user data doesn't match, update user data in the database
-
-              console.log("the user not match")
+              console.log("the user not match");
               const updatedUser = {
                 ...userData,
                 userName: authenticatedUser.userName,
                 firstName: authenticatedUser.firstName,
                 lastName: authenticatedUser.lastName,
                 email: authenticatedUser.email,
-                profile:authenticatedUser.profile
+                profile: authenticatedUser.profile,
               };
-              // Update user in the database
-             const updatedUser1=  await updateUser(userData.id, updatedUser);
-             setCurrentUser(updatedUser1)
+              const updatedUser1 = await updateUser(userData.id, updatedUser);
+              setCurrentUser(updatedUser1);
             } else {
-              console.log(
-                "User data in Keycloak matches user data in the database."
-              );
+              console.log("User data in Keycloak matches user data in the database.");
             }
           } else {
-            // If user doesn't exist in the database, create a new user
-            console.log(
-              "User not found in the database.well try Creating new user:",
-              authenticatedUser
-            );
-           const createdUser:User= await createUser(authenticatedUser);
-           console.log("🚀 ~ handleOnEvent ~ createdUser:", createdUser)
-           setCurrentUser(createdUser)
+            console.log("User not found in the database. Creating new user:", authenticatedUser);
+            const createdUser: User = await createUser(authenticatedUser);
+            console.log("🚀 ~ handleOnEvent ~ createdUser:", createdUser);
+            setAuthUser(createdUser);  // ← manquait dans l'original
+            setCurrentUser(createdUser);
           }
-           
         } catch (error) {
           console.error("Error while fetching or updating user data:", error);
         }

@@ -69,9 +69,9 @@ function MessageBubble({ msg }: { msg: ChatMessageDTO }) {
             p: 1.5, borderRadius: 2, bgcolor: bubbleBg,
             borderBottomRightRadius: isClient ? 0 : 8,
             borderBottomLeftRadius:  isClient ? 8 : 0,
-          }}
-        >
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+           }}
+>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'Arial, sans-serif' }}>
             {msg.message}
           </Typography>
         </Paper>

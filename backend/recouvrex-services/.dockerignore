@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Maven
+target/
+*.iml
+
+# IDE
+.idea/
+.vscode/
+*.class
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+
+# Tests
+src/test/

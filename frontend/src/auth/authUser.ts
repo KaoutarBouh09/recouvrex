@@ -1,23 +1,34 @@
 import { User } from "src/models/User";
 
+const AUTH_USER_KEY = 'authUser';
+
 let authUser: User | null = null;
 
 export const setAuthUser = (user: User) => {
-  console.log("\nseting new auth user ", user);
   authUser = user;
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 };
 
 export const getAuthUser = (): User | null => {
-  console.log("🚀 ~ getAuthUser ~ authUser:", authUser)
-  return authUser;
+  if (authUser) return authUser;
+
+  const stored = localStorage.getItem(AUTH_USER_KEY);
+  if (stored) {
+    try {
+      authUser = JSON.parse(stored);
+      return authUser;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 };
 
-// Function to check if the user is an admin
-export const isAdmin = () => authUser?.profile?.id == 1;
+export const clearAuthUser = () => {
+  authUser = null;
+  localStorage.removeItem(AUTH_USER_KEY);
+};
 
-// Function to check if the user is a region responsable
-export const isRegionResponsable = () => authUser?.profile?.id == 2;
-
-// Function to check if the user is a recovery agent
-export const isRecoveryAgent = () => authUser?.profile?.id == 3;
-
+export const isAdmin = () => getAuthUser()?.profile?.id == 1;
+export const isRegionResponsable = () => getAuthUser()?.profile?.id == 2;
+export const isRecoveryAgent = () => getAuthUser()?.profile?.id == 3;
