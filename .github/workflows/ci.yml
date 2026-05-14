@@ -104,8 +104,8 @@ jobs:
       - name: Analyse SonarCloud (backend)
         run: |
           mvn --batch-mode sonar:sonar \
-            -Dsonar.projectKey=KaoutarBouh09_recouvrex \
-            -Dsonar.organization=KaoutarBouh09 \
+            -Dsonar.projectKey=kaoutarbouh09_recouvrex \
+            -Dsonar.organization=kaoutarbouh09 \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
         working-directory: ./backend/recouvrex-services
@@ -299,5 +299,5 @@ jobs:
           echo "## ✅ Pipeline CI terminé" >> $GITHUB_STEP_SUMMARY
           echo "- Backend: \`${{ env.BACKEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend: \`${{ env.FRONTEND_IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- SonarCloud: https://sonarcloud.io/project/overview?id=KaoutarBouh09_recouvrex" >> $GITHUB_STEP_SUMMARY
+          echo "- SonarCloud: https://sonarcloud.io/project/overview?id=kaoutarbouh09_recouvrex" >> $GITHUB_STEP_SUMMARY
           echo "- Trivy: onglet Security de ton repo GitHub" >> $GITHUB_STEP_SUMMARY
