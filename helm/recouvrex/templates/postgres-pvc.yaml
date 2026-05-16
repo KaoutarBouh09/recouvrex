@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.postgres.name }}-pvc
+  labels:
+    {{- include "recouvrex.labels" . | nindent 4 }}
+    {{- include "recouvrex.selectorLabels" (dict "component" "postgres" "Release" .Release) | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.postgres.storage.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage.size }}

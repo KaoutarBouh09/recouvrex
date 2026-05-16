@@ -72,6 +72,7 @@ jobs:
         working-directory: ./frontend
         env:
           VITE_NODE_ENV: production
+          VITE_API_BASE_URL: http://recouvrex.local/api
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4

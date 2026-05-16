@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.frontend.name }}-config
+  labels:
+    {{- include "recouvrex.labels" . | nindent 4 }}
+    {{- include "recouvrex.selectorLabels" (dict "component" "frontend" "Release" .Release) | nindent 4 }}
+data:
+  VITE_API_BASE_URL: {{ .Values.frontend.env.VITE_API_BASE_URL | quote }}

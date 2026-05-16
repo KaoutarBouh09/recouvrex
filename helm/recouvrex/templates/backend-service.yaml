@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.backend.name }}
+  labels:
+    {{- include "recouvrex.labels" . | nindent 4 }}
+    {{- include "recouvrex.selectorLabels" (dict "component" "backend" "Release" .Release) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "recouvrex.selectorLabels" (dict "component" "backend" "Release" .Release) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.backend.port }}
+      targetPort: http
+      protocol: TCP

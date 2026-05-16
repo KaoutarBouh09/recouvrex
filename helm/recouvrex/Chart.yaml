@@ -1,0 +1,13 @@
+apiVersion: v2
+name: recouvrex
+description: Helm chart for Recouvrex – professional debt recovery application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: kaoutarbouh09
+keywords:
+  - recouvrex
+  - debt-recovery
+  - spring-boot
+  - react

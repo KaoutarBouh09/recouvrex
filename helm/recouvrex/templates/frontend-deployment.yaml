@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.frontend.name }}
+  labels:
+    {{- include "recouvrex.labels" . | nindent 4 }}
+    {{- include "recouvrex.selectorLabels" (dict "component" "frontend" "Release" .Release) | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "recouvrex.selectorLabels" (dict "component" "frontend" "Release" .Release) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "recouvrex.labels" . | nindent 8 }}
+        {{- include "recouvrex.selectorLabels" (dict "component" "frontend" "Release" .Release) | nindent 8 }}
+    spec:
+      containers:
+        - name: frontend
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.port }}
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.frontend.name }}-config
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

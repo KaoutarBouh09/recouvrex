@@ -1,0 +1,112 @@
+# ─────────────────────────────────────────────
+#  Global
+# ─────────────────────────────────────────────
+global:
+  imageRegistry: ghcr.io/kaoutarbouh09
+
+# ─────────────────────────────────────────────
+#  Backend (Spring Boot)
+# ─────────────────────────────────────────────
+backend:
+  name: recouvrex-backend
+  image:
+    repository: ghcr.io/kaoutarbouh09/recouvrex-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  port: 8080
+
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1024Mi"
+
+  env:
+    SPRING_PROFILES_ACTIVE: prod
+    SERVER_PORT: "8080"
+
+  # Secrets are base64-encoded in backend-secret.yaml
+  # Override at deploy time:  --set backend.secret.jwtSecret=...
+  secret:
+    jwtSecret: "Y2hhbmdlbWVpbnByb2R1Y3Rpb24="          # changeme (base64)
+    dbPassword: "cmVjb3V2cmV4cGFzcw=="                   # recouvrexpass (base64)
+    geminiApiKey: ""
+    twilioAccountSid: ""
+    twilioAuthToken: ""
+    twilioFromNumber: ""
+    mailUsername: ""
+    mailPassword: ""
+    cloudinaryApiSecret: ""
+    keycloakJwkUri: ""
+
+# ─────────────────────────────────────────────
+#  Frontend (React / Nginx)
+# ─────────────────────────────────────────────
+frontend:
+  name: recouvrex-frontend
+  image:
+    repository: ghcr.io/kaoutarbouh09/recouvrex-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  port: 80
+
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+  env:
+    VITE_API_BASE_URL: "http://recouvrex.local/api"
+
+# ─────────────────────────────────────────────
+#  PostgreSQL
+# ─────────────────────────────────────────────
+postgres:
+  name: recouvrex-postgres
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+
+  port: 5432
+
+  database: recouvrex_db
+  username: recouvrex_user
+
+  # base64-encoded — override at deploy time
+  secret:
+    password: "cmVjb3V2cmV4cGFzcw=="   # recouvrexpass
+
+  storage:
+    size: 5Gi
+    storageClassName: standard          # minikube default
+
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# ─────────────────────────────────────────────
+#  Ingress
+# ─────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: recouvrex.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
