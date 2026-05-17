@@ -11,6 +11,10 @@ COPY . .
 # ← Ajouter ces 2 lignes
 ARG VITE_NODE_ENV=docker
 ENV VITE_NODE_ENV=$VITE_NODE_ENV
+ARG VITE_API_BASE_URL
+ARG VITE_KEYCLOAK_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_KEYCLOAK_BASE_URL=$VITE_KEYCLOAK_BASE_URL
 
 RUN npm run build
 
@@ -23,6 +27,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 ENV BACKEND_HOST=backend
 ENV BACKEND_PORT=9080
+
 
 EXPOSE 80
 CMD ["/docker-entrypoint-custom.sh"]

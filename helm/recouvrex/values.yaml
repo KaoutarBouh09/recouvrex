@@ -67,9 +67,10 @@ frontend:
       memory: "256Mi"
 
   env:
-    VITE_API_BASE_URL: "http://recouvrex.local/api"
     backendHost: "recouvrex-backend"    # ← nom exact du service K8s
     backendPort: "8080"
+    viteApiBaseUrl: "http://localhost:9080"
+    viteKeycloakBaseUrl: "http://localhost:8080"
 
 # ─────────────────────────────────────────────
 #  PostgreSQL
