@@ -34,7 +34,8 @@ const docker = {
     }
 }
   
+  // ✅ CORRECT — chaîne ternaire propre
   export const config = 
     import.meta.env.VITE_NODE_ENV === 'development' ? dev :
-    import.meta.env.VITE_NODE_ENV === 'docker' ? docker : prod
+    import.meta.env.VITE_NODE_ENV === 'docker' ? docker :
     import.meta.env.VITE_NODE_ENV === 'kubernetes' ? kubernetes : prod
