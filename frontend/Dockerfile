@@ -10,7 +10,7 @@ COPY . .
 
 # ← Ajouter ces 2 lignes
 ARG VITE_NODE_ENV=docker
-ENV VITE_NODE_ENV=docker
+ENV VITE_NODE_ENV=$VITE_NODE_ENV
 
 RUN npm run build
 
