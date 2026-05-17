@@ -22,7 +22,7 @@ public class RecouvrexApplication {
           try {
               reminderService.sendOverdueReminders();
           } catch (Exception e) {
-              log.warn("ReminderService non disponible au démarrage : {}", e.getMessage());
+              System.out.println("ReminderService non disponible au démarrage : " + e.getMessage());
           }
       };
 }
