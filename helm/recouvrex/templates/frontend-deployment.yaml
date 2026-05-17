@@ -28,12 +28,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ .Values.frontend.name }}-config
-          
-          env:
-            - name: BACKEND_HOST
-              value: {{ .Values.backend.name | quote }}
-            - name: BACKEND_PORT
-              value: {{ .Values.backend.port | quote }}
 
           readinessProbe:
             httpGet:
