@@ -7,3 +7,5 @@ metadata:
     {{- include "recouvrex.selectorLabels" (dict "component" "frontend" "Release" .Release) | nindent 4 }}
 data:
   VITE_API_BASE_URL: {{ .Values.frontend.env.VITE_API_BASE_URL | quote }}
+  BACKEND_HOST: {{ .Values.frontend.env.backendHost | quote }}   # ← ajouter
+  BACKEND_PORT: {{ .Values.frontend.env.backendPort | quote }}   # ← ajouter

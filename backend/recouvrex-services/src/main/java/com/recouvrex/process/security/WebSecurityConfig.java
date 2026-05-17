@@ -23,6 +23,7 @@ public class WebSecurityConfig {
         public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
                 http
                         .securityMatcher("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui/index.html")
+                        .securityMatcher("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui/index.html", "/actuator/health")
                         .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                         .csrf(csrf -> csrf.disable())
                         .cors(Customizer.withDefaults())
