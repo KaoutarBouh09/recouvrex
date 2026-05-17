@@ -25,7 +25,16 @@ const docker = {
       AVATARS_DICEBEAR_URL: 'https://api.dicebear.com/6.x'
     }
   }
+  const kubernetes = {
+    url: {
+      KEYCLOAK_BASE_URL: "http://localhost:8080",
+      API_BASE_URL: 'http://localhost:9080',
+      OMDB_BASE_URL: 'https://www.omdbapi.com',
+      AVATARS_DICEBEAR_URL: 'https://api.dicebear.com/6.x'
+    }
+}
   
   export const config = 
     import.meta.env.VITE_NODE_ENV === 'development' ? dev :
     import.meta.env.VITE_NODE_ENV === 'docker' ? docker : prod
+    import.meta.env.VITE_NODE_ENV === 'kubernetes' ? kubernetes : prod
