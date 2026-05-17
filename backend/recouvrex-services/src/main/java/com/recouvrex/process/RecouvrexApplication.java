@@ -17,10 +17,14 @@ public class RecouvrexApplication {
     SpringApplication.run(RecouvrexApplication.class, args);
   }
   @Bean
-  CommandLineRunner run(ReminderService reminderService) {
-        return args -> {
-            reminderService.sendOverdueReminders();
-        };
-    }
+  public CommandLineRunner run(ReminderService reminderService) {
+      return args -> {
+          try {
+              reminderService.sendOverdueReminders();
+          } catch (Exception e) {
+              log.warn("ReminderService non disponible au démarrage : {}", e.getMessage());
+          }
+      };
+}
   
 }
