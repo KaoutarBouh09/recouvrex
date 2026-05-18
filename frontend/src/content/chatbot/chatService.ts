@@ -1,6 +1,6 @@
 // src/content/chatbot/chatService.ts
 
-const BASE_URL = 'http://localhost:9080/public/chat';
+const BASE_URL = '/public/chat';  // ✅ relatif → NGINX proxy
 
 export interface ChatMessage {
   sender: 'CLIENT' | 'AI' | 'AGENT';
@@ -50,7 +50,6 @@ export const closeSession = async (
   if (!response.ok) throw new Error('Erreur lors de la cloture');
 };
 
-// ✅ AJOUT : récupérer tous les messages de la session (pour le polling)
 export const getMessages = async (
   token: string,
   pinCode: string

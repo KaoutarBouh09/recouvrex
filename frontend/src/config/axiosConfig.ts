@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { config } from './Constants';
 import { getAuthToken } from 'src/auth/authToken';
 
 const instance = axios.create({
-  baseURL: config.url.API_BASE_URL
+  baseURL: window.location.port === '5173' || window.location.port === '3000'
+    ? 'http://localhost:8081/api'  // dev local + docker
+    : '/api'                        // Kubernetes (tout autre port)
 });
-
 instance.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
@@ -14,11 +14,7 @@ instance.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default instance;
-
-

@@ -69,7 +69,7 @@ frontend:
   env:
     backendHost: "recouvrex-backend"    # ← nom exact du service K8s
     backendPort: "8080"
-    viteApiBaseUrl: "http://localhost:9080"
+    viteApiBaseUrl: "/api"
     viteKeycloakBaseUrl: "http://localhost:8080"
 
 # ─────────────────────────────────────────────

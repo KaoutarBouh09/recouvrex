@@ -29,6 +29,18 @@ spec:
             - configMapRef:
                 name: {{ .Values.frontend.name }}-config
 
+          env:
+            - name: BACKEND_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: recouvrex-frontend-config
+                  key: BACKEND_HOST
+            - name: BACKEND_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: recouvrex-frontend-config
+                  key: BACKEND_PORT
+
           readinessProbe:
             httpGet:
               path: /

@@ -9,50 +9,69 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig {
 
-        private final JwtAuthConverter jwtAuthConverter;
+    private final JwtAuthConverter jwtAuthConverter;
 
-        // ✅ Chain 1 : routes publiques — SANS JWT, priorité haute
-        @Bean
-        @Order(1)
-        public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
-                http
-                        .securityMatcher("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui/index.html")
-                        .securityMatcher("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui/index.html", "/actuator/health")
-                        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                        .csrf(csrf -> csrf.disable())
-                        .cors(Customizer.withDefaults())
-                        .sessionManagement(session -> session
-                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-                return http.build();
-        }
+    // ✅ Chain 1 : routes publiques — SANS JWT, priorité haute
+    @Bean
+    @Order(1)
+    public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui/index.html", "/actuator/health")
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .csrf(csrf -> csrf.disable())
+            .cors(Customizer.withDefaults())
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        return http.build();
+    }
 
-        // ✅ Chain 2 : routes protégées — AVEC JWT
-        @Bean
-        @Order(2)
-        public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
-                return http
-                        .authorizeHttpRequests(auth -> auth
-                                .requestMatchers("/api", "/api/**")
-                                .hasAnyRole(RECOUVREX_ADMIN, RECOUVREX_MANAGER, RECOUVREX_USER, RECOUVREX_REGION_RESPONSABLE, RECOUVREX_RECOVERY_AGENT)
-                                .anyRequest().authenticated()
-                        )
-                        .oauth2ResourceServer(oauth2 -> oauth2
-                                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
-                        .sessionManagement(session -> session
-                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                        .cors(Customizer.withDefaults())
-                        .build();
-        }
+    // ✅ Chain 2 : routes protégées — AVEC JWT
+    @Bean
+    @Order(2)
+    public SecurityFilterChain securedFilterChain(HttpSecurity http) throws Exception {
+        return http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api", "/api/**")
+                .hasAnyRole(RECOUVREX_ADMIN, RECOUVREX_MANAGER, RECOUVREX_USER, RECOUVREX_REGION_RESPONSABLE, RECOUVREX_RECOVERY_AGENT)
+                .anyRequest().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .cors(Customizer.withDefaults())
+            .csrf(csrf -> csrf.disable())
+            .build();
+    }
 
-        public static final String RECOUVREX_USER = "RECOUVREX_USER";
-        public static final String RECOUVREX_MANAGER = "RECOUVREX_MANAGER";
-        public static final String RECOUVREX_ADMIN = "RECOUVREX_ADMIN";
-        public static final String RECOUVREX_REGION_RESPONSABLE = "RECOUVREX_REGION_RESPONSABLE";
-        public static final String RECOUVREX_RECOVERY_AGENT = "RECOUVREX_RECOVERY_AGENT";
+    // ✅ Bean CORS global — utilisé par les deux chains via Customizer.withDefaults()
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*")); // dev/kubernetes local
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    public static final String RECOUVREX_USER = "RECOUVREX_USER";
+    public static final String RECOUVREX_MANAGER = "RECOUVREX_MANAGER";
+    public static final String RECOUVREX_ADMIN = "RECOUVREX_ADMIN";
+    public static final String RECOUVREX_REGION_RESPONSABLE = "RECOUVREX_REGION_RESPONSABLE";
+    public static final String RECOUVREX_RECOVERY_AGENT = "RECOUVREX_RECOVERY_AGENT";
 }
