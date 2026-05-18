@@ -3,8 +3,8 @@ import { getAuthToken } from 'src/auth/authToken';
 
 const instance = axios.create({
   baseURL: window.location.port === '5173' || window.location.port === '3000'
-    ? 'http://localhost:8081/api'  // dev local + docker
-    : '/api'                        // Kubernetes (tout autre port)
+    ? 'http://localhost:8081'  // dev local + docker
+    : ''                        // Kubernetes (tout autre port)
 });
 instance.interceptors.request.use(
   (config) => {
