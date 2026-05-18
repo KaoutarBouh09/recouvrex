@@ -192,12 +192,6 @@ jobs:
           name: backend-jar
           path: backend/recouvrex-services/target/
 
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist/
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
