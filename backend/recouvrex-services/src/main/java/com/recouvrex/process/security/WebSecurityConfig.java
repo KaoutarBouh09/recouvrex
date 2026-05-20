@@ -55,20 +55,6 @@ public class WebSecurityConfig {
             .build();
     }
 
-    // ✅ Bean CORS global — utilisé par les deux chains via Customizer.withDefaults()
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*")); // dev/kubernetes local
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
-
     public static final String RECOUVREX_USER = "RECOUVREX_USER";
     public static final String RECOUVREX_MANAGER = "RECOUVREX_MANAGER";
     public static final String RECOUVREX_ADMIN = "RECOUVREX_ADMIN";

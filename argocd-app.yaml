@@ -8,7 +8,9 @@ spec:
   source:
     repoURL: https://github.com/kaoutarbouh09/recouvrex
     targetRevision: HEAD
-    path: helm
+    path: helm/recouvrex
+    helm:
+      releaseName: recouvrex
   destination:
     server: https://kubernetes.default.svc
     namespace: recouvrex
