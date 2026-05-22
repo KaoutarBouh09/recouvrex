@@ -89,7 +89,7 @@ postgres:
 
   # base64-encoded — override at deploy time
   secret:
-    password: "cmVjb3V2cmV4cGFzcw=="   # recouvrexpass
+    password: ""   # 
 
   storage:
     size: 5Gi

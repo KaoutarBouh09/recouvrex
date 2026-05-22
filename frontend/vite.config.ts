@@ -1,26 +1,18 @@
-// import { defineConfig } from 'vite'
-// import react from '@vitejs/plugin-react'
-
-// // https://vitejs.dev/config/
-// export default defineConfig({
-//   plugins: [react()],
-// })
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import path from 'path'; // Make sure to import 'path'
+import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
       'src/': `${path.resolve(__dirname, 'src')}/`,
     },
-    
   },
-  
-  // optimizeDeps: {
-  //   include: [ '@emotion/styled'],
-  // },
-
+  test: {
+    environment: 'happy-dom',
+    setupFiles: ['./src/setupTests.ts'],
+    globals: true,
+    pool: 'forks',
+  },
 });
