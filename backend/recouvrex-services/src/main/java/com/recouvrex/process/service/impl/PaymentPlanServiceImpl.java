@@ -8,7 +8,7 @@ import com.recouvrex.process.model.*;
 import com.recouvrex.process.model.enums.AgreementStatusTypesEnum;
 import com.recouvrex.process.model.enums.AgreementTypesEnum;
 import com.recouvrex.process.model.enums.PaymentStatusEnum;
-import com.recouvrex.process.model.enums.StatusEnum;
+
 import com.recouvrex.process.model.enums.ValidationActionEnum;
 import com.recouvrex.process.repository.*;
 import com.recouvrex.process.service.PaymentPlanService;
@@ -43,10 +43,10 @@ public class PaymentPlanServiceImpl implements PaymentPlanService {
     private final PdfGeneratorService pdfGeneratorService;
 
     // ✅ Statuts de dossier qui bloquent la création/relance d'un plan de paiement
-    private static final List<StatusEnum> BLOCKED_STATUSES = List.of(
-        StatusEnum.RADIE,
-        StatusEnum.TERMINE,
-        StatusEnum.SAISIE_CONSERVATION_IMMOBILIERE_INITIEE
+    private static final List<String> BLOCKED_STATUSES = List.of(
+        "Radié",
+        "Terminé",
+        "Saisie conservation immobilière initiée"
     );
 
     @Override
@@ -57,11 +57,11 @@ public class PaymentPlanServiceImpl implements PaymentPlanService {
         Case case1 = caseRepository.findById(dto.getCaseId())
                 .orElseThrow(() -> new RuntimeException("Case not found with id: " + dto.getCaseId()));
 
-        // ✅ 1b. Vérifier que le statut du dossier autorise la création d'un plan
-        StatusEnum caseStatus = case1.getStatus().getStatus();
+        // ✅ Vérifier que le statut du dossier autorise la création d'un plan
+        String caseStatus = case1.getStatus().getStatus();
         if (BLOCKED_STATUSES.contains(caseStatus)) {
             throw new IllegalArgumentException(
-                "Impossible de créer un plan de paiement pour un dossier avec le statut : " + caseStatus.label
+                "Impossible de créer un plan de paiement pour un dossier avec le statut : " + caseStatus
             );
         }
 

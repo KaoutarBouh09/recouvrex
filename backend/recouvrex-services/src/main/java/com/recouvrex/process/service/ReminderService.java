@@ -5,7 +5,6 @@ import com.recouvrex.process.model.*;
 import com.recouvrex.process.model.enums.AgreementStatusTypesEnum;
 import com.recouvrex.process.model.enums.ReminderChannelEnum;
 import com.recouvrex.process.model.enums.ReminderStatusEnum;
-import com.recouvrex.process.model.enums.StatusEnum;
 import com.recouvrex.process.repository.CreditRepository;
 import com.recouvrex.process.repository.InstallmentPaymentRepository;
 import com.recouvrex.process.repository.ReminderHistoryRepository;
@@ -44,10 +43,10 @@ public class ReminderService {
     private int overdueThresholdDays;
 
     // ✅ Statuts de dossier qui bloquent l'envoi de relances
-    private static final List<StatusEnum> BLOCKED_STATUSES = List.of(
-        StatusEnum.RADIE,
-        StatusEnum.TERMINE,
-        StatusEnum.SAISIE_CONSERVATION_IMMOBILIERE_INITIEE
+    private static final List<String> BLOCKED_STATUSES = List.of(
+        "Radié",
+        "Terminé",
+        "Saisie conservation immobilière initiée"
     );
 
     public void sendOverdueReminders() {
@@ -92,7 +91,7 @@ public class ReminderService {
             }
 
             // ✅ Vérifier que le dossier n'est pas dans un statut bloquant
-            StatusEnum caseStatus = installment.getAgreement().getCase1().getStatus().getStatus();
+            String caseStatus = installment.getAgreement().getCase1().getStatus().getStatus();
             if (BLOCKED_STATUSES.contains(caseStatus)) {
                 log.info("Dossier inactif (statut: {}), relance ignorée pour échéance {}",
                     caseStatus, installment.getId());
