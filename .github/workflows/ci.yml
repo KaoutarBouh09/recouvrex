@@ -151,6 +151,8 @@ jobs:
 
       - name: Trivy — Scan fichiers du repo
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_SKIP_JAVA_DB_UPDATE: "true"
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -160,6 +162,7 @@ jobs:
           exit-code: '0'
           skip-dirs: 'backend/venv,backend/recouvrex-services/target'
           scanners: 'secret,config'
+          skip-files: '**/*.jar,**/*.pom'
 
       - name: Upload résultats vers GitHub Security
         uses: github/codeql-action/upload-sarif@v3
