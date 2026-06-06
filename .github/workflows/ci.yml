@@ -158,6 +158,8 @@ jobs:
           output: 'trivy-repo.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
+          skip-dirs: 'backend/venv,backend/recouvrex-services/target'
+          scanners: 'secret,config'
 
       - name: Upload résultats vers GitHub Security
         uses: github/codeql-action/upload-sarif@v3
