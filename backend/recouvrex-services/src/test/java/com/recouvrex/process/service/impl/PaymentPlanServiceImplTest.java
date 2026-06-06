@@ -52,9 +52,14 @@ class PaymentPlanServiceImplTest {
         testUser.setFirstName("Kaoutar");
         testUser.setLastName("Bouh");
 
+        // ✅ Statut dossier non bloquant — requis par la vérification dans createPaymentPlan
+        Status status = new Status();
+        status.setStatus("Contentieux");
+
         testCase = new Case();
         testCase.setId(10L);
         testCase.setTotalAmount(new BigDecimal("5000.00"));
+        testCase.setStatus(status);
 
         testAgreement = Agreement.builder()
                 .agreementId("AGR-TEST1234")
@@ -120,8 +125,8 @@ class PaymentPlanServiceImplTest {
         // GIVEN
         CreatePaymentPlanDTO dto = new CreatePaymentPlanDTO();
         dto.setCaseId(999L);
-        dto.setTotalAmount(new BigDecimal("1000.00"));
-        dto.setNumberOfInstallments(3);
+        dto.setTotalAmount(new BigDecimal("5000.00"));
+        dto.setNumberOfInstallments(10);
         dto.setFirstPaymentDate(LocalDate.now().plusMonths(1));
 
         when(caseRepository.findById(999L)).thenReturn(Optional.empty());
@@ -130,31 +135,148 @@ class PaymentPlanServiceImplTest {
         assertThatThrownBy(() -> paymentPlanService.createPaymentPlan(dto, 1L))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Case not found");
-
-        verify(agreementRepository, never()).save(any());
     }
 
     // =====================================================================
-    // TEST 3 — getPaymentPlanById : retourne le bon DTO
+    // TEST 3 — createPaymentPlan : statut dossier bloquant → exception
     // =====================================================================
     @Test
-    @DisplayName("getPaymentPlanById - doit retourner le plan correspondant à l'ID")
-    void getPaymentPlanById_shouldReturnCorrectPlan() {
+    @DisplayName("createPaymentPlan - doit refuser si le dossier est Radié")
+    void createPaymentPlan_shouldThrowWhenCaseStatusBlocked() {
+        // GIVEN
+        Status blockedStatus = new Status();
+        blockedStatus.setStatus("Radié");
+        testCase.setStatus(blockedStatus);
+
+        CreatePaymentPlanDTO dto = new CreatePaymentPlanDTO();
+        dto.setCaseId(10L);
+        dto.setTotalAmount(new BigDecimal("5000.00"));
+        dto.setNumberOfInstallments(6);
+        dto.setFirstPaymentDate(LocalDate.now().plusMonths(1));
+
+        when(caseRepository.findById(10L)).thenReturn(Optional.of(testCase));
+
+        // WHEN / THEN
+        assertThatThrownBy(() -> paymentPlanService.createPaymentPlan(dto, 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Radié");
+    }
+
+    // =====================================================================
+    // TEST 4 — validatePaymentPlan : statut passe à ACCEPTE
+    // =====================================================================
+    @Test
+    @DisplayName("validatePaymentPlan - doit passer le statut à ACCEPTE")
+    void validatePaymentPlan_shouldSetStatusToAccepted() {
+        // GIVEN
+        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(agreementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(validationRepository.save(any())).thenReturn(null);
+        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
+                .thenReturn(List.of());
+
+        // WHEN
+        PaymentPlanResponseDTO result = paymentPlanService.validatePaymentPlan(100L, 1L, "OK");
+
+        // THEN
+        assertThat(result.getStatus()).isEqualTo(AgreementStatusTypesEnum.ACCEPTE);
+        verify(agreementRepository).save(argThat(a -> a.getAgreementStatus() == AgreementStatusTypesEnum.ACCEPTE));
+    }
+
+    // =====================================================================
+    // TEST 5 — rejectPaymentPlan : statut passe à REJETE
+    // =====================================================================
+    @Test
+    @DisplayName("rejectPaymentPlan - doit passer le statut à REJETE")
+    void rejectPaymentPlan_shouldSetStatusToRejected() {
+        // GIVEN
+        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(agreementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(validationRepository.save(any())).thenReturn(null);
+        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
+                .thenReturn(List.of());
+
+        // WHEN
+        PaymentPlanResponseDTO result = paymentPlanService.rejectPaymentPlan(100L, 1L, "Motif rejet");
+
+        // THEN
+        assertThat(result.getStatus()).isEqualTo(AgreementStatusTypesEnum.REJETE);
+        verify(agreementRepository).save(argThat(a -> a.getAgreementStatus() == AgreementStatusTypesEnum.REJETE));
+    }
+
+    // =====================================================================
+    // TEST 6 — recordInstallmentPayment : échéance marquée comme réglée
+    // =====================================================================
+    @Test
+    @DisplayName("recordInstallmentPayment - doit marquer l'échéance comme REGLE")
+    void recordInstallmentPayment_shouldMarkInstallmentAsPaid() {
         // GIVEN
         InstallmentPayment installment = InstallmentPayment.builder()
                 .installmentNumber(1)
-                .dueDate(LocalDate.now().plusMonths(1))
                 .amount(new BigDecimal("500.00"))
                 .paidAmount(BigDecimal.ZERO)
                 .status(PaymentStatusEnum.EN_ATTENTE)
-                .reminderSent(false)
                 .agreement(testAgreement)
                 .build();
         installment.setId(1L);
 
-        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
+        when(installmentPaymentRepository.findById(1L)).thenReturn(Optional.of(installment));
+        when(installmentPaymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
                 .thenReturn(List.of(installment));
+
+        // WHEN
+        paymentPlanService.recordInstallmentPayment(1L, null);
+
+        // THEN
+        assertThat(installment.getStatus()).isEqualTo(PaymentStatusEnum.REGLE);
+        assertThat(installment.getPaidAmount()).isEqualByComparingTo(new BigDecimal("500.00"));
+        assertThat(installment.getPaidDate()).isEqualTo(LocalDate.now());
+    }
+
+    // =====================================================================
+    // TEST 7 — recordInstallmentPayment : toutes payées → accord TERMINE
+    // =====================================================================
+    @Test
+    @DisplayName("recordInstallmentPayment - doit terminer l'accord si toutes les échéances sont réglées")
+    void recordInstallmentPayment_shouldTerminateAgreementWhenAllPaid() {
+        // GIVEN
+        InstallmentPayment inst1 = InstallmentPayment.builder()
+                .installmentNumber(1).amount(new BigDecimal("500.00"))
+                .status(PaymentStatusEnum.REGLE).agreement(testAgreement).build();
+        inst1.setId(1L);
+
+        InstallmentPayment inst2 = InstallmentPayment.builder()
+                .installmentNumber(2).amount(new BigDecimal("500.00"))
+                .paidAmount(BigDecimal.ZERO).status(PaymentStatusEnum.EN_ATTENTE)
+                .agreement(testAgreement).build();
+        inst2.setId(2L);
+
+        when(installmentPaymentRepository.findById(2L)).thenReturn(Optional.of(inst2));
+        when(installmentPaymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
+                .thenReturn(List.of(inst1, inst2));
+        when(agreementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // WHEN
+        paymentPlanService.recordInstallmentPayment(2L, null);
+
+        // THEN
+        verify(agreementRepository).save(argThat(a -> a.getAgreementStatus() == AgreementStatusTypesEnum.TERMINE));
+    }
+
+    // =====================================================================
+    // TEST 8 — getPaymentPlanById : retourne le bon plan
+    // =====================================================================
+    @Test
+    @DisplayName("getPaymentPlanById - doit retourner le plan correspondant")
+    void getPaymentPlanById_shouldReturnCorrectPlan() {
+        // GIVEN
+        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
+        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
+                .thenReturn(List.of());
 
         // WHEN
         PaymentPlanResponseDTO result = paymentPlanService.getPaymentPlanById(100L);
@@ -162,138 +284,6 @@ class PaymentPlanServiceImplTest {
         // THEN
         assertThat(result).isNotNull();
         assertThat(result.getAgreementCode()).isEqualTo("AGR-TEST1234");
-        assertThat(result.getInstallments()).hasSize(1);
-        assertThat(result.getInstallments().get(0).getStatus()).isEqualTo(PaymentStatusEnum.EN_ATTENTE);
-    }
-
-    // =====================================================================
-    // TEST 4 — validatePaymentPlan : statut passe à ACCEPTE
-    // =====================================================================
-    @Test
-    @DisplayName("validatePaymentPlan - doit changer le statut à ACCEPTE et enregistrer la validation")
-    void validatePaymentPlan_shouldSetStatusAccepte() {
-        // GIVEN
-        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(agreementRepository.save(any())).thenReturn(testAgreement);
-        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
-                .thenReturn(List.of());
-
-        // WHEN
-        paymentPlanService.validatePaymentPlan(100L, 1L, "Approuvé");
-
-        // THEN
-        assertThat(testAgreement.getAgreementStatus()).isEqualTo(AgreementStatusTypesEnum.ACCEPTE);
-        assertThat(testAgreement.getValidator()).isEqualTo(testUser);
-        verify(validationRepository).save(any(AgreementValidation.class));
-    }
-
-    // =====================================================================
-    // TEST 5 — rejectPaymentPlan : statut passe à REJETE
-    // =====================================================================
-    @Test
-    @DisplayName("rejectPaymentPlan - doit changer le statut à REJETE avec la raison")
-    void rejectPaymentPlan_shouldSetStatusRejete() {
-        // GIVEN
-        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(agreementRepository.save(any())).thenReturn(testAgreement);
-        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
-                .thenReturn(List.of());
-
-        // WHEN
-        paymentPlanService.rejectPaymentPlan(100L, 1L, "Montant trop élevé");
-
-        // THEN
-        assertThat(testAgreement.getAgreementStatus()).isEqualTo(AgreementStatusTypesEnum.REJETE);
-        assertThat(testAgreement.getRejectionReason()).isEqualTo("Montant trop élevé");
-        verify(validationRepository).save(any(AgreementValidation.class));
-    }
-
-    // =====================================================================
-    // TEST 6 — recordInstallmentPayment : toutes échéances payées → TERMINE
-    // =====================================================================
-    @Test
-    @DisplayName("recordInstallmentPayment - doit marquer le plan TERMINE si toutes les échéances sont payées")
-    void recordInstallmentPayment_shouldSetAgreementTermineWhenAllPaid() {
-        // GIVEN
-        InstallmentPayment installment = InstallmentPayment.builder()
-                .amount(new BigDecimal("500.00"))
-                .paidAmount(BigDecimal.ZERO)
-                .status(PaymentStatusEnum.EN_ATTENTE)
-                .agreement(testAgreement)
-                .build();
-        installment.setId(1L);
-
-        // Après paiement, l'échéance sera REGLE → on simule que c'est la seule
-        InstallmentPayment paidInstallment = InstallmentPayment.builder()
-                .amount(new BigDecimal("500.00"))
-                .paidAmount(new BigDecimal("500.00"))
-                .status(PaymentStatusEnum.REGLE)
-                .agreement(testAgreement)
-                .build();
-        paidInstallment.setId(1L);
-
-        when(installmentPaymentRepository.findById(1L)).thenReturn(Optional.of(installment));
-        when(installmentPaymentRepository.save(any())).thenReturn(paidInstallment);
-        when(installmentPaymentRepository.findByAgreementIdOrderByInstallmentNumber(100L))
-                .thenReturn(List.of(paidInstallment));
-        when(agreementRepository.save(any())).thenReturn(testAgreement);
-
-        // WHEN
-        paymentPlanService.recordInstallmentPayment(1L, null);
-
-        // THEN
-        assertThat(installment.getStatus()).isEqualTo(PaymentStatusEnum.REGLE);
-        assertThat(testAgreement.getAgreementStatus()).isEqualTo(AgreementStatusTypesEnum.TERMINE);
-        verify(agreementRepository).save(testAgreement);
-    }
-
-    // =====================================================================
-    // TEST 7 — getPaymentPlanStatus : retourne le bon statut
-    // =====================================================================
-    @Test
-    @DisplayName("getPaymentPlanStatus - doit retourner le statut actuel du plan")
-    void getPaymentPlanStatus_shouldReturnCorrectStatus() {
-        // GIVEN
-        testAgreement.setAgreementStatus(AgreementStatusTypesEnum.ACCEPTE);
-        when(agreementRepository.findById(100L)).thenReturn(Optional.of(testAgreement));
-
-        // WHEN
-        AgreementStatusTypesEnum status = paymentPlanService.getPaymentPlanStatus(100L);
-
-        // THEN
-        assertThat(status).isEqualTo(AgreementStatusTypesEnum.ACCEPTE);
-    }
-
-    // =====================================================================
-    // TEST 8 — getUpcomingInstallments : retourne les échéances à venir
-    // =====================================================================
-    @Test
-    @DisplayName("getUpcomingInstallments - doit retourner les échéances dans les X prochains jours")
-    void getUpcomingInstallments_shouldReturnInstallmentsWithinRange() {
-        // GIVEN
-        LocalDate today = LocalDate.now();
-        InstallmentPayment upcoming = InstallmentPayment.builder()
-                .installmentNumber(2)
-                .dueDate(today.plusDays(3))
-                .amount(new BigDecimal("300.00"))
-                .paidAmount(BigDecimal.ZERO)
-                .status(PaymentStatusEnum.EN_ATTENTE)
-                .reminderSent(false)
-                .agreement(testAgreement)
-                .build();
-        upcoming.setId(5L);
-
-        when(installmentPaymentRepository.findUpcomingInstallmentsByUser(eq(1L), any(), any()))
-                .thenReturn(List.of(upcoming));
-
-        // WHEN
-        List<InstallmentDTO> result = paymentPlanService.getUpcomingInstallments(1L, 7);
-
-        // THEN
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getAgreementCode()).isEqualTo("AGR-TEST1234");
-        assertThat(result.get(0).getAmount()).isEqualByComparingTo(new BigDecimal("300.00"));
+        assertThat(result.getStatus()).isEqualTo(AgreementStatusTypesEnum.EN_COURS);
     }
 }

@@ -2,6 +2,7 @@ package com.recouvrex.process.service;
 
 import com.recouvrex.process.chatbot.service.ChatSessionService;
 import com.recouvrex.process.model.*;
+import com.recouvrex.process.model.enums.AgreementStatusTypesEnum;
 import com.recouvrex.process.model.enums.ReminderChannelEnum;
 import com.recouvrex.process.model.enums.ReminderStatusEnum;
 import com.recouvrex.process.repository.CreditRepository;
@@ -39,6 +40,7 @@ class ReminderServiceTest {
     @InjectMocks
     private ReminderService reminderService;
 
+    // ✅ Helper : construit un InstallmentPayment avec statut plan ACCEPTE + dossier actif
     private InstallmentPayment buildInstallment(String email, String phone) {
         ThirdParty client = new ThirdParty();
         client.setFirstName("Ahmed");
@@ -46,14 +48,21 @@ class ReminderServiceTest {
         client.setBusinessEmail(email);
         client.setPrivatePhone(phone);
 
+        // ✅ Statut dossier non bloquant
+        Status status = new Status();
+        status.setStatus("Contentieux");
+
         Case case1 = new Case();
         case1.setCaseId("CASE-001");
+        case1.setThirdParty(client);
+        case1.setStatus(status);
 
+        // ✅ Plan avec statut ACCEPTE (sinon le filtre bloque)
         Agreement agreement = Agreement.builder()
                 .agreementId("AGR-ABCD1234")
+                .agreementStatus(AgreementStatusTypesEnum.ACCEPTE)
                 .case1(case1)
                 .build();
-        case1.setThirdParty(client);
 
         InstallmentPayment installment = InstallmentPayment.builder()
                 .installmentNumber(3)
@@ -69,7 +78,6 @@ class ReminderServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Injecter la valeur @Value manuellement (non injectable par Mockito)
         ReflectionTestUtils.setField(reminderService, "overdueThresholdDays", 30);
     }
 
