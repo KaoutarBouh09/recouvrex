@@ -1,4 +1,4 @@
-package main.java.com.recouvrex.process.dto;
+package com.recouvrex.process.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
