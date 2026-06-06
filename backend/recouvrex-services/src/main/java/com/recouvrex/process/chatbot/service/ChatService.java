@@ -152,64 +152,24 @@ public class ChatService {
 
     // ── Récupérer toutes les conversations pour l'agent ──
     public List<ConversationDTO> getAllConversations(Long userId) {
-          List<ChatSession> sessions;
-
+        List<ChatSession> sessions;
         if (userId != null) {
-               sessions = chatSessionRepository.findByAgentId(userId);
+            sessions = chatSessionRepository.findByAgentId(userId);
         } else {
-               sessions = chatSessionRepository.findAll();
-       }
-
-        return sessions.stream().map(session -> {
-             ConversationDTO dto = new ConversationDTO();
-             dto.setSessionId(session.getId());
-             dto.setCaseId(session.getCase1().getCaseId());
-             dto.setClientNom(session.getCase1().getThirdParty().getLastName());
-             dto.setClientPrenom(session.getCase1().getThirdParty().getFirstName());
-             dto.setStatus(session.getStatus().name());
-             dto.setCreatedAt(session.getCreatedAt().format(FORMATTER));
-
-             List<ChatMessageResponse> messages =
-                  conversationMessageRepository
-                      .findBySessionOrderByTimestampAsc(session)
-                      .stream().map(msg -> {
-                            ChatMessageResponse r = new ChatMessageResponse();
-                            r.setSender(msg.getSender().name());
-                            r.setMessage(msg.getMessage());
-                            r.setTimestamp(msg.getTimestamp().format(FORMATTER));
-                            return r;
-                     }).collect(Collectors.toList());
-
-             dto.setMessages(messages);
-             return dto;
-          }).collect(Collectors.toList());
+            sessions = chatSessionRepository.findAll();
+        }
+        List<ConversationDTO> result = new ArrayList<>();
+        for (ChatSession session : sessions) {
+            result.add(toConversationDTO(session));
+        }
+        return result;
     }
+
     // ── Récupérer une conversation par sessionId ──
     public ConversationDTO getConversation(Long sessionId) {
         ChatSession session = chatSessionRepository.findById(sessionId)
             .orElseThrow(() -> new RuntimeException("Session introuvable"));
-
-        ConversationDTO dto = new ConversationDTO();
-        dto.setSessionId(session.getId());
-        dto.setCaseId(session.getCase1().getCaseId());
-        dto.setClientNom(session.getCase1().getThirdParty().getLastName());
-        dto.setClientPrenom(session.getCase1().getThirdParty().getFirstName());
-        dto.setStatus(session.getStatus().name());
-        dto.setCreatedAt(session.getCreatedAt().format(FORMATTER));
-
-        List<ChatMessageResponse> messages =
-            conversationMessageRepository
-                .findBySessionOrderByTimestampAsc(session)
-                .stream().map(msg -> {
-                    ChatMessageResponse r = new ChatMessageResponse();
-                    r.setSender(msg.getSender().name());
-                    r.setMessage(msg.getMessage());
-                    r.setTimestamp(msg.getTimestamp().format(FORMATTER));
-                    return r;
-                }).collect(Collectors.toList());
-
-        dto.setMessages(messages);
-        return dto;
+        return toConversationDTO(session);
     }
 
     // ── Intervention agent ──
@@ -240,7 +200,6 @@ public class ChatService {
     // ── Récupérer tous les messages d'une session (polling client) ──
     public List<ChatMessageResponse> getMessages(String token, String pinCode) {
         ChatSession session = validateAccess(token, pinCode);
-
         return conversationMessageRepository
             .findBySessionOrderByTimestampAsc(session)
             .stream().map(msg -> {
@@ -250,6 +209,28 @@ public class ChatService {
                 r.setTimestamp(msg.getTimestamp().format(FORMATTER));
                 return r;
             }).collect(Collectors.toList());
+    }
+
+    // ✅ Supprimer une conversation expirée
+    @Transactional
+    public void deleteConversation(Long sessionId) {
+        ChatSession session = chatSessionRepository.findById(sessionId)
+            .orElseThrow(() -> new RuntimeException("Session introuvable avec l'id : " + sessionId));
+
+        // Seules les conversations EXPIRED peuvent être supprimées
+        if (session.getStatus() != ChatSessionStatus.EXPIRED) {
+            throw new IllegalStateException(
+                "Impossible de supprimer une conversation avec le statut : "
+                + session.getStatus().name()
+                + ". Seules les conversations EXPIRED peuvent être supprimées."
+            );
+        }
+
+        // Supprimer les messages puis la session
+        conversationMessageRepository.deleteBySession(session);
+        chatSessionRepository.delete(session);
+
+        log.info("Conversation {} supprimée avec succès", sessionId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -269,7 +250,6 @@ public class ChatService {
 
         try (PDDocument document = new PDDocument()) {
 
-            // ── Charger les polices TTF depuis src/main/resources/fonts/ ──
             PDType0Font fontRegular, fontBold;
             try (InputStream r = new ClassPathResource("fonts/LiberationSans-Regular.ttf").getInputStream();
                  InputStream b = new ClassPathResource("fonts/LiberationSans-Bold.ttf").getInputStream()) {
@@ -283,12 +263,10 @@ public class ChatService {
             final float contentWidth = pageWidth - 2 * margin;
             final float bottomLimit  = margin + 20;
 
-            // ── État mutable de la page courante ──
-            PDPage[]              currentPage    = { null };
-            PDPageContentStream[] cs             = { null };
-            float[]               y              = { 0 };
+            PDPage[]              currentPage = { null };
+            PDPageContentStream[] cs          = { null };
+            float[]               y           = { 0 };
 
-            // Ouvre une nouvelle page A4
             Runnable newPage = () -> {
                 try {
                     if (cs[0] != null) cs[0].close();
@@ -299,7 +277,6 @@ public class ChatService {
                 } catch (Exception e) { throw new RuntimeException(e); }
             };
 
-            // Écrit une ligne — crée une nouvelle page si nécessaire
             WriteLine writeLine = (font, size, x, text) -> {
                 try {
                     if (y[0] < bottomLimit) newPage.run();
@@ -312,7 +289,6 @@ public class ChatService {
                 } catch (Exception e) { throw new RuntimeException(e); }
             };
 
-            // Trait horizontal séparateur
             Runnable separator = () -> {
                 try {
                     if (y[0] < bottomLimit) newPage.run();
@@ -324,15 +300,12 @@ public class ChatService {
                 } catch (Exception e) { throw new RuntimeException(e); }
             };
 
-            // ── Page 1 ──
             newPage.run();
 
-            // Titre
             writeLine.write(fontBold, 15, margin,
                 "RAPPORT DE CONVERSATION  —  Dossier " + case1.getCaseId());
             y[0] -= 4;
 
-            // Infos client
             writeLine.write(fontRegular, 10, margin,
                 "Client : " + clientNom
                 + "     Date : " + session.getCreatedAt().format(FORMATTER)
@@ -340,7 +313,6 @@ public class ChatService {
             y[0] -= 6;
             separator.run();
 
-            // Résumé
             if (session.getSummary() != null && !session.getSummary().isBlank()) {
                 writeLine.write(fontBold, 11, margin, "Résumé :");
                 y[0] -= 2;
@@ -351,31 +323,23 @@ public class ChatService {
                 separator.run();
             }
 
-            // Titre conversation
             writeLine.write(fontBold, 11, margin, "Conversation :");
             y[0] -= 4;
 
-            // Messages
             for (ConversationMessage msg : messages) {
                 String sender = switch (msg.getSender()) {
                     case CLIENT -> "Client";
                     case AI     -> "Agent virtuel (IA)";
                     case AGENT  -> "Agent";
                 };
-
-                // En-tête [heure] Expéditeur :
                 writeLine.write(fontBold, 10, margin,
                     "[" + msg.getTimestamp().format(FORMATTER) + "]  " + sender + " :");
-
-                // Corps du message, découpé selon la largeur réelle
-                List<String> lines = splitLines(msg.getMessage(), fontRegular, 10, contentWidth - 16);
-                for (String line : lines) {
+                for (String line : splitLines(msg.getMessage(), fontRegular, 10, contentWidth - 16)) {
                     writeLine.write(fontRegular, 10, margin + 14, line);
                 }
                 y[0] -= 5;
             }
 
-            // Fermer le dernier stream
             if (cs[0] != null) cs[0].close();
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -385,30 +349,42 @@ public class ChatService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // ── Interfaces fonctionnelles internes ──
+    // ── Helpers ──
     // ─────────────────────────────────────────────────────────────────────────
+
+    private ConversationDTO toConversationDTO(ChatSession session) {
+        ConversationDTO dto = new ConversationDTO();
+        dto.setSessionId(session.getId());
+        dto.setCaseId(session.getCase1().getCaseId());
+        dto.setClientNom(session.getCase1().getThirdParty().getLastName());
+        dto.setClientPrenom(session.getCase1().getThirdParty().getFirstName());
+        dto.setStatus(session.getStatus().name());
+        dto.setCreatedAt(session.getCreatedAt().format(FORMATTER));
+
+        List<ChatMessageResponse> messages = conversationMessageRepository
+            .findBySessionOrderByTimestampAsc(session)
+            .stream().map(msg -> {
+                ChatMessageResponse r = new ChatMessageResponse();
+                r.setSender(msg.getSender().name());
+                r.setMessage(msg.getMessage());
+                r.setTimestamp(msg.getTimestamp().format(FORMATTER));
+                return r;
+            }).collect(Collectors.toList());
+
+        dto.setMessages(messages);
+        return dto;
+    }
 
     @FunctionalInterface
     private interface WriteLine {
         void write(PDType0Font font, float size, float x, String text);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ── Helpers ──
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Supprime uniquement \n \r \t — les accents sont conservés grâce à PDType0Font.
-     */
     private String sanitize(String text) {
         if (text == null) return "";
         return text.replaceAll("[\\r\\n\\t]", " ").trim();
     }
 
-    /**
-     * Découpe le texte en lignes tenant dans maxWidth px,
-     * en mesurant la largeur réelle avec la police TTF.
-     */
     private List<String> splitLines(String text, PDType0Font font,
                                     float fontSize, float maxWidth) {
         List<String> result = new ArrayList<>();
@@ -416,10 +392,8 @@ public class ChatService {
 
         for (String paragraph : text.replaceAll("\\r\\n", "\n").split("\\n")) {
             if (paragraph.isBlank()) { result.add(""); continue; }
-
             String[] words = paragraph.split(" ");
             StringBuilder current = new StringBuilder();
-
             for (String word : words) {
                 if (word.isEmpty()) continue;
                 String candidate = current.isEmpty() ? word : current + " " + word;

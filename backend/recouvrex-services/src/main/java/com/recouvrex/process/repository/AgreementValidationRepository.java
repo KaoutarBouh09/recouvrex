@@ -10,4 +10,5 @@ import java.util.List;
 public interface AgreementValidationRepository extends JpaRepository<AgreementValidation, Long> {
     
     List<AgreementValidation> findByAgreementIdOrderByActionDateDesc(Long agreementId);
+    void deleteByAgreementId(Long agreementId);
 }

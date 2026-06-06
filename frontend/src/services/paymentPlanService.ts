@@ -1,6 +1,6 @@
 // src/services/paymentPlanService.ts
 
-import axiosInstance from 'src/config/axiosConfig'; // adapter le chemin selon votre projet
+import axiosInstance from 'src/config/axiosConfig';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,13 @@ export interface CreatePaymentPlanDTO {
   description?: string;
 }
 
+// ✅ DTO pour la modification d'un plan
+export interface UpdatePaymentPlanDTO {
+  numberOfInstallments: number;
+  interestRate: number;
+  description?: string;
+}
+
 export interface InstallmentDTO {
   id: number;
   installmentNumber: number;
@@ -23,6 +30,7 @@ export interface InstallmentDTO {
   status: 'EN_ATTENTE' | 'REGLE' | 'EN_RETARD';
   paidDate: string | null;
   reminderSent: boolean;
+  agreementCode?: string;
 }
 
 export interface PaymentPlanResponseDTO {
@@ -42,6 +50,15 @@ export interface PaymentPlanResponseDTO {
   installments: InstallmentDTO[];
 }
 
+export interface ReminderHistoryDTO {
+  id: number;
+  channel: 'EMAIL' | 'SMS';
+  status: 'SUCCESS' | 'FAILED';
+  sentAt: string;
+  recipient: string;
+  errorMessage?: string;
+}
+
 // ─── API CALLS ────────────────────────────────────────────────────────────────
 
 // Créer un plan de paiement (Agent)
@@ -56,6 +73,20 @@ export const createPaymentPlan = async (
   return response.data;
 };
 
+// ✅ Modifier un plan de paiement (Agent, statut EN_COURS)
+export const updatePaymentPlan = async (
+  id: number,
+  dto: UpdatePaymentPlanDTO
+): Promise<PaymentPlanResponseDTO> => {
+  const response = await axiosInstance.put(`/api/payment-plan/${id}/edit`, dto);
+  return response.data;
+};
+
+// ✅ Supprimer un plan de paiement (Agent, statut EN_COURS ou REJETE)
+export const deletePaymentPlan = async (id: number): Promise<void> => {
+  await axiosInstance.delete(`/api/payment-plan/${id}`);
+};
+
 // Obtenir un plan par ID
 export const getPaymentPlanById = async (
   id: number
@@ -64,7 +95,7 @@ export const getPaymentPlanById = async (
   return response.data;
 };
 
-// Lister les plans d'un cas (Agent/Admin)
+// Lister les plans d'un cas
 export const getPaymentPlansByCase = async (
   caseId: number
 ): Promise<PaymentPlanResponseDTO[]> => {
@@ -138,7 +169,14 @@ export const downloadPaymentPlanPdf = async (id: number): Promise<void> => {
   window.URL.revokeObjectURL(url);
 };
 
-// Enregistrer un paiement sur une échéance
+// ✅ Marquer une échéance comme payée (Agent, plan ACCEPTE)
+export const markInstallmentAsPaid = async (
+  installmentId: number
+): Promise<void> => {
+  await axiosInstance.put(`/api/payment-plan/installments/${installmentId}/pay`);
+};
+
+// Enregistrer un paiement sur une échéance (avec reglementId optionnel)
 export const recordInstallmentPayment = async (
   installmentId: number,
   reglementId?: number
@@ -147,18 +185,12 @@ export const recordInstallmentPayment = async (
   await axiosInstance.put(
     `/api/payment-plan/installments/${installmentId}/pay${params}`
   );
-
 };
-export interface ReminderHistoryDTO {
-  id: number;
-  channel: 'EMAIL' | 'SMS';
-  status: 'SUCCESS' | 'FAILED';
-  sentAt: string;
-  recipient: string;
-  errorMessage?: string;
-}
 
-export const getReminderHistory = async (installmentId: number): Promise<ReminderHistoryDTO[]> => {
+// Historique des relances
+export const getReminderHistory = async (
+  installmentId: number
+): Promise<ReminderHistoryDTO[]> => {
   const response = await axiosInstance.get(`/api/reminders/installment/${installmentId}`);
   return response.data;
 };

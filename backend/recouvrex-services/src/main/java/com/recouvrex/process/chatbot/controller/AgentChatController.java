@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -24,13 +25,13 @@ public class AgentChatController {
     // Toutes les conversations (onglet agent)
     @GetMapping("/conversations")
     public ResponseEntity<List<ConversationDTO>> getAllConversations(
-              @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId) {
         try {
-              return ResponseEntity.ok(chatService.getAllConversations(userId));
-      } catch (Exception e) {
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-     }
-   }
+            return ResponseEntity.ok(chatService.getAllConversations(userId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
     // Détail d'une conversation
     @GetMapping("/conversations/{sessionId}")
@@ -61,15 +62,33 @@ public class AgentChatController {
     @GetMapping("/conversations/{sessionId}/pdf")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Long sessionId) {
         try {
-             byte[] pdf = chatService.generateConversationPdf(sessionId);
-             return ResponseEntity.ok()
-                  .header("Content-Type", "application/pdf")
-                  .header("Content-Disposition",
-                      "attachment; filename=conversation_" + sessionId + ".pdf")
-                  .body(pdf);
-       } catch (Exception e) {
-             e.printStackTrace();
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-      }
-   }
+            byte[] pdf = chatService.generateConversationPdf(sessionId);
+            return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition",
+                    "attachment; filename=conversation_" + sessionId + ".pdf")
+                .body(pdf);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ✅ Supprimer une conversation expirée
+    @DeleteMapping("/conversations/{sessionId}")
+    public ResponseEntity<Map<String, String>> deleteConversation(
+            @PathVariable Long sessionId) {
+        try {
+            chatService.deleteConversation(sessionId);
+            return ResponseEntity.ok(Map.of("message", "Conversation supprimée avec succès"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

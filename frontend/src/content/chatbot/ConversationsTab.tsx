@@ -4,19 +4,20 @@ import { useState, useEffect, useRef, useContext } from 'react';
 import {
   Box, Typography, Paper, Grid, Chip, Button, TextField,
   CircularProgress, Alert, Avatar, Divider, IconButton,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   Tooltip, Badge,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SendIcon from '@mui/icons-material/Send';
 import DownloadIcon from '@mui/icons-material/Download';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import {
   ConversationDTO, ChatMessageDTO,
   getAllConversations, getConversation,
-  agentIntervene, downloadConversationPdf,
+  agentIntervene, downloadConversationPdf, deleteConversation,
 } from './agentChatService';
 import { UserContext } from 'src/contexts/UserContext';
 
@@ -37,10 +38,10 @@ function MessageBubble({ msg }: { msg: ChatMessageDTO }) {
   const isClient = msg.sender === 'CLIENT';
   const isAgent  = msg.sender === 'AGENT';
 
-  const avatarBg  = isClient ? '#e0e0e0' : isAgent ? '#e65100' : '#1976d2';
+  const avatarBg   = isClient ? '#e0e0e0' : isAgent ? '#e65100' : '#1976d2';
   const AvatarIcon = isClient ? PersonIcon : isAgent ? SupportAgentIcon : SmartToyIcon;
-  const bubbleBg  = isClient ? '#ffffff' : isAgent ? '#fff3e0' : '#e3f2fd';
-  const label     = isClient ? 'Client' : isAgent ? 'Agent' : 'IA';
+  const bubbleBg   = isClient ? '#ffffff' : isAgent ? '#fff3e0' : '#e3f2fd';
+  const label      = isClient ? 'Client' : isAgent ? 'Agent' : 'IA';
 
   return (
     <Box
@@ -69,8 +70,8 @@ function MessageBubble({ msg }: { msg: ChatMessageDTO }) {
             p: 1.5, borderRadius: 2, bgcolor: bubbleBg,
             borderBottomRightRadius: isClient ? 0 : 8,
             borderBottomLeftRadius:  isClient ? 8 : 0,
-           }}
->
+          }}
+        >
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'Arial, sans-serif' }}>
             {msg.message}
           </Typography>
@@ -84,15 +85,20 @@ function MessageBubble({ msg }: { msg: ChatMessageDTO }) {
 export default function ConversationsTab() {
   const { currentUser, isRecoveryAgent } = useContext(UserContext);
 
-  const [conversations, setConversations]   = useState<ConversationDTO[]>([]);
-  const [selected, setSelected]             = useState<ConversationDTO | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [refreshing, setRefreshing]         = useState(false);
-  const [agentInput, setAgentInput]         = useState('');
-  const [sending, setSending]               = useState(false);
-  const [error, setError]                   = useState('');
-  const [success, setSuccess]               = useState('');
+  const [conversations, setConversations] = useState<ConversationDTO[]>([]);
+  const [selected, setSelected]           = useState<ConversationDTO | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [refreshing, setRefreshing]       = useState(false);
+  const [agentInput, setAgentInput]       = useState('');
+  const [sending, setSending]             = useState(false);
+  const [error, setError]                 = useState('');
+  const [success, setSuccess]             = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // ✅ État pour la suppression
+  const [deleteDialogOpen, setDeleteDialogOpen]   = useState(false);
+  const [convToDelete, setConvToDelete]           = useState<ConversationDTO | null>(null);
+  const [deleteLoading, setDeleteLoading]         = useState(false);
 
   // Agent peut intervenir, Admin/Manager voient en lecture seule
   const canIntervene = isRecoveryAgent();
@@ -102,7 +108,6 @@ export default function ConversationsTab() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      // Agent voit uniquement ses conversations, Admin/Manager voient tout
       const userId = isRecoveryAgent() ? currentUser.id : undefined;
       const data = await getAllConversations(userId);
       setConversations(data);
@@ -118,14 +123,12 @@ export default function ConversationsTab() {
     }
   };
 
-  // Auto-refresh toutes les 30 secondes
   useEffect(() => {
     loadConversations();
     const interval = setInterval(() => loadConversations(true), 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Scroll vers le bas quand nouveaux messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selected?.messages]);
@@ -155,7 +158,7 @@ export default function ConversationsTab() {
       setSuccess('Message envoyé au client.');
       setTimeout(() => setSuccess(''), 3000);
     } catch {
-      setError('Erreur lors de l\'intervention.');
+      setError("Erreur lors de l'intervention.");
     } finally {
       setSending(false);
     }
@@ -167,10 +170,32 @@ export default function ConversationsTab() {
     try {
       await downloadConversationPdf(selected.sessionId);
     } catch (err: any) {
-      console.error('PDF error:', err);
-      console.error('Status:', err?.response?.status);
-      console.error('Data:', err?.response?.data);
       setError('Erreur lors du téléchargement du PDF.');
+    }
+  };
+
+  // ✅ Supprimer une conversation expirée
+  const handleDeleteClick = (conv: ConversationDTO, e: React.MouseEvent) => {
+    e.stopPropagation(); // éviter de sélectionner la conversation
+    setConvToDelete(conv);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!convToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await deleteConversation(convToDelete.sessionId);
+      setConversations(prev => prev.filter(c => c.sessionId !== convToDelete.sessionId));
+      if (selected?.sessionId === convToDelete.sessionId) setSelected(null);
+      setDeleteDialogOpen(false);
+      setConvToDelete(null);
+      setSuccess('Conversation supprimée.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch {
+      setError('Erreur lors de la suppression de la conversation.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -194,33 +219,24 @@ export default function ConversationsTab() {
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
           <Tooltip title="Rafraîchir">
             <IconButton onClick={() => loadConversations(true)} disabled={refreshing}>
-              {refreshing
-                ? <CircularProgress size={20} />
-                : <RefreshIcon />}
+              {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
 
       {error && (
-        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>
       )}
 
       <Grid container spacing={2} sx={{ height: 'calc(100vh - 280px)' }}>
 
         {/* ── Liste des conversations ── */}
         <Grid item xs={12} md={4}>
-          <Paper
-            elevation={2}
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2 }}
-          >
+          <Paper elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2 }}>
             <Box sx={{ p: 1.5, borderBottom: '1px solid #e0e0e0' }}>
               <Typography variant="subtitle1" fontWeight={700}>
                 {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
@@ -245,17 +261,30 @@ export default function ConversationsTab() {
                       p: 2,
                       cursor: 'pointer',
                       borderBottom: '1px solid #f0f0f0',
-                      bgcolor: selected?.sessionId === conv.sessionId
-                        ? '#e3f2fd' : 'transparent',
+                      bgcolor: selected?.sessionId === conv.sessionId ? '#e3f2fd' : 'transparent',
                       '&:hover': { bgcolor: '#f5f5f5' },
                       transition: 'background 0.15s',
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="body2" fontWeight={700}>
                         {conv.clientPrenom} {conv.clientNom}
                       </Typography>
-                      <StatusChip status={conv.status} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <StatusChip status={conv.status} />
+                        {/* ✅ Bouton supprimer : visible uniquement pour les conversations EXPIRED */}
+                        {conv.status === 'EXPIRED' && (
+                          <Tooltip title="Supprimer la conversation expirée">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => handleDeleteClick(conv, e)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </Box>
                     <Typography variant="caption" color="text.secondary">
                       Dossier : {conv.caseId}
@@ -276,30 +305,17 @@ export default function ConversationsTab() {
           {!selected ? (
             <Paper
               elevation={2}
-              sx={{
-                height: '100%', borderRadius: 2,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
+              sx={{ height: '100%', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
                 <SmartToyIcon sx={{ fontSize: 56, opacity: 0.3 }} />
-                <Typography mt={1}>
-                  Sélectionnez une conversation pour la visualiser
-                </Typography>
+                <Typography mt={1}>Sélectionnez une conversation pour la visualiser</Typography>
               </Box>
             </Paper>
           ) : (
-            <Paper
-              elevation={2}
-              sx={{ height: '100%', borderRadius: 2, display: 'flex', flexDirection: 'column' }}
-            >
+            <Paper elevation={2} sx={{ height: '100%', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
               {/* Header conversation */}
-              <Box
-                sx={{
-                  p: 2, borderBottom: '1px solid #e0e0e0',
-                  display: 'flex', alignItems: 'center', gap: 1.5,
-                }}
-              >
+              <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="h6" fontWeight={700}>
                     {selected.clientPrenom} {selected.clientNom}
@@ -314,6 +330,17 @@ export default function ConversationsTab() {
                     <DownloadIcon />
                   </IconButton>
                 </Tooltip>
+                {/* ✅ Bouton supprimer dans le header du détail si EXPIRED */}
+                {selected.status === 'EXPIRED' && (
+                  <Tooltip title="Supprimer cette conversation expirée">
+                    <IconButton
+                      color="error"
+                      onClick={(e) => handleDeleteClick(selected, e)}
+                    >
+                      <DeleteOutlineIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
 
               {/* Messages */}
@@ -332,27 +359,21 @@ export default function ConversationsTab() {
 
               <Divider />
 
-              {/* Zone intervention — visible uniquement pour les agents */}
+              {/* Zone intervention */}
               {canIntervene && (selected.status === 'ACTIVE' || selected.status === 'AGENT_TOOK_OVER') && (
                 <Box sx={{ p: 2, display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                   <TextField
-                    fullWidth
-                    size="small"
+                    fullWidth size="small"
                     placeholder="Intervenir dans la conversation..."
                     value={agentInput}
                     onChange={e => setAgentInput(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleIntervene();
-                      }
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIntervene(); }
                     }}
-                    multiline
-                    maxRows={3}
+                    multiline maxRows={3}
                   />
                   <Button
-                    variant="contained"
-                    color="warning"
+                    variant="contained" color="warning"
                     onClick={handleIntervene}
                     disabled={sending || !agentInput.trim()}
                     sx={{ borderRadius: 2, minWidth: 48, px: 2 }}
@@ -362,7 +383,7 @@ export default function ConversationsTab() {
                 </Box>
               )}
 
-              {/* Message lecture seule pour Admin/Manager */}
+              {/* Lecture seule Admin/Manager */}
               {!canIntervene && (selected.status === 'ACTIVE' || selected.status === 'AGENT_TOOK_OVER') && (
                 <Box sx={{ p: 1.5, bgcolor: '#f5f5f5', borderTop: '1px solid #e0e0e0' }}>
                   <Typography variant="caption" color="text.secondary" textAlign="center" display="block">
@@ -382,10 +403,38 @@ export default function ConversationsTab() {
                   </Typography>
                 </Box>
               )}
+
+              {/* ✅ Message informatif si expirée */}
+              {selected.status === 'EXPIRED' && (
+                <Box sx={{ p: 1.5, bgcolor: '#ffeaea', borderTop: '1px solid #ffcdd2' }}>
+                  <Typography variant="caption" color="error" textAlign="center" display="block">
+                    Cette conversation a expiré — vous pouvez la supprimer via l'icône 🗑️
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           )}
         </Grid>
       </Grid>
+
+      {/* ✅ Dialog confirmation suppression */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirmer la suppression</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Voulez-vous vraiment supprimer la conversation de{' '}
+            <strong>{convToDelete?.clientPrenom} {convToDelete?.clientNom}</strong> (dossier {convToDelete?.caseId}) ?
+            Cette action est irréversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteLoading}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteConfirm} disabled={deleteLoading}>
+            {deleteLoading ? 'Suppression...' : 'Supprimer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 }

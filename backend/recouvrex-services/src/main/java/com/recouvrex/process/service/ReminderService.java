@@ -2,8 +2,10 @@ package com.recouvrex.process.service;
 
 import com.recouvrex.process.chatbot.service.ChatSessionService;
 import com.recouvrex.process.model.*;
+import com.recouvrex.process.model.enums.AgreementStatusTypesEnum;
 import com.recouvrex.process.model.enums.ReminderChannelEnum;
 import com.recouvrex.process.model.enums.ReminderStatusEnum;
+import com.recouvrex.process.model.enums.StatusEnum;
 import com.recouvrex.process.repository.CreditRepository;
 import com.recouvrex.process.repository.InstallmentPaymentRepository;
 import com.recouvrex.process.repository.ReminderHistoryRepository;
@@ -41,6 +43,13 @@ public class ReminderService {
     @Value("${chatbot.trigger.overdue-days:30}")
     private int overdueThresholdDays;
 
+    // ✅ Statuts de dossier qui bloquent l'envoi de relances
+    private static final List<StatusEnum> BLOCKED_STATUSES = List.of(
+        StatusEnum.RADIE,
+        StatusEnum.TERMINE,
+        StatusEnum.SAISIE_CONSERVATION_IMMOBILIERE_INITIEE
+    );
+
     public void sendOverdueReminders() {
         List<Credit> creditsEnRetard = creditRepository.findCreditsEnRetard();
 
@@ -73,6 +82,23 @@ public class ReminderService {
         log.info("{} echeances trouvees", upcoming.size());
 
         for (InstallmentPayment installment : upcoming) {
+
+            // ✅ Vérifier que le plan est validé (ACCEPTE) — pas de relance si encore en attente
+            AgreementStatusTypesEnum planStatus = installment.getAgreement().getAgreementStatus();
+            if (planStatus != AgreementStatusTypesEnum.ACCEPTE) {
+                log.info("Plan non validé (statut: {}), relance ignorée pour échéance {}",
+                    planStatus, installment.getId());
+                continue;
+            }
+
+            // ✅ Vérifier que le dossier n'est pas dans un statut bloquant
+            StatusEnum caseStatus = installment.getAgreement().getCase1().getStatus().getStatus();
+            if (BLOCKED_STATUSES.contains(caseStatus)) {
+                log.info("Dossier inactif (statut: {}), relance ignorée pour échéance {}",
+                    caseStatus, installment.getId());
+                continue;
+            }
+
             ThirdParty client = installment.getAgreement().getCase1().getThirdParty();
 
             boolean emailSent = false;
@@ -141,7 +167,7 @@ public class ReminderService {
         }
     }
 
-    // ── NOUVEAU : Job séparé pour déclencher le chatbot ──
+    // ── Job séparé pour déclencher le chatbot ──
     public void triggerChatbotForOverdue() {
         LocalDate limitDate = LocalDate.now().minusDays(overdueThresholdDays);
 

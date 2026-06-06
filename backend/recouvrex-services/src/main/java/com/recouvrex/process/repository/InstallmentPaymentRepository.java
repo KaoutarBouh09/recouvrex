@@ -57,4 +57,5 @@ public interface InstallmentPaymentRepository extends JpaRepository<InstallmentP
      List<InstallmentPayment> findOverdueInstallmentsForChatbot(
          @Param("limitDate") LocalDate limitDate
   );
+    void deleteByAgreementId(Long agreementId);
 }

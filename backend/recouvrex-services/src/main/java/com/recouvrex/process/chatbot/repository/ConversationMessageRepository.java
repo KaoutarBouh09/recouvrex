@@ -1,5 +1,6 @@
 package com.recouvrex.process.chatbot.repository;
 
+import com.recouvrex.process.chatbot.model.ChatSession;
 import com.recouvrex.process.chatbot.model.ConversationMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,4 +10,5 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
     List<ConversationMessage> findBySessionOrderByTimestampAsc(
         com.recouvrex.process.chatbot.model.ChatSession session
     );
+    void deleteBySession(ChatSession session);
 }

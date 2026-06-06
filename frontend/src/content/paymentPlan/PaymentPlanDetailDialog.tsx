@@ -19,10 +19,12 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Tooltip from "@mui/material/Tooltip";
 import EmailIcon from "@mui/icons-material/Email";
 import SmsIcon from "@mui/icons-material/Sms";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
+import PaidIcon from "@mui/icons-material/Paid";
 import {
   Table,
   TableBody,
@@ -39,6 +41,7 @@ import {
   validatePaymentPlan,
   rejectPaymentPlan,
   getReminderHistory,
+  markInstallmentAsPaid,
   PaymentPlanResponseDTO,
   InstallmentDTO,
   ReminderHistoryDTO,
@@ -83,7 +86,9 @@ interface PaymentPlanDetailDialogProps {
   plan: PaymentPlanResponseDTO;
   onClose: () => void;
   canValidate?: boolean;
+  canEdit?: boolean;
   onValidated?: () => void;
+  onUpdated?: () => void;
 }
 
 // ─── COMPOSANT ────────────────────────────────────────────────────────────────
@@ -93,7 +98,9 @@ export default function PaymentPlanDetailDialog({
   plan,
   onClose,
   canValidate = false,
+  canEdit = false,
   onValidated,
+  onUpdated,
 }: PaymentPlanDetailDialogProps) {
   const { currentUser } = useContext(UserContext);
 
@@ -105,9 +112,18 @@ export default function PaymentPlanDetailDialog({
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage]     = useState("");
 
+  // ── État local des échéances (pour mise à jour optimiste) ──
+  const [installments, setInstallments] = useState<InstallmentDTO[]>(plan.installments ?? []);
+  const [payingInstallmentId, setPayingInstallmentId] = useState<number | null>(null);
+
   // ── Historique relances ──
-  const [reminders, setReminders]     = useState<ReminderHistoryDTO[]>([]);
+  const [reminders, setReminders]         = useState<ReminderHistoryDTO[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Sync si le plan change
+  useEffect(() => {
+    setInstallments(plan.installments ?? []);
+  }, [plan]);
 
   useEffect(() => {
     if (open && activeTab === 1 && plan.installments?.length > 0) {
@@ -118,7 +134,6 @@ export default function PaymentPlanDetailDialog({
   const loadAllReminders = async () => {
     setLoadingHistory(true);
     try {
-      // Charger l'historique pour toutes les échéances
       const allReminders = await Promise.all(
         plan.installments.map((inst) => getReminderHistory(inst.id))
       );
@@ -129,6 +144,30 @@ export default function PaymentPlanDetailDialog({
       console.error("Erreur chargement historique:", e);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  // ── Marquer une échéance comme payée ──
+  const handleMarkAsPaid = async (installment: InstallmentDTO) => {
+    setPayingInstallmentId(installment.id);
+    setErrorMessage("");
+    try {
+      await markInstallmentAsPaid(installment.id);
+      // Mise à jour optimiste locale
+      setInstallments((prev) =>
+        prev.map((i) =>
+          i.id === installment.id
+            ? { ...i, status: "REGLE", paidAmount: i.amount, paidDate: new Date().toISOString().split("T")[0] }
+            : i
+        )
+      );
+      setSuccessMessage(`Échéance n°${installment.installmentNumber} marquée comme payée.`);
+      setTimeout(() => setSuccessMessage(""), 3000);
+      onUpdated?.();
+    } catch {
+      setErrorMessage("Erreur lors de la mise à jour de l'échéance.");
+    } finally {
+      setPayingInstallmentId(null);
     }
   };
 
@@ -258,10 +297,12 @@ export default function PaymentPlanDetailDialog({
                     <TableCell>PAYÉ</TableCell>
                     <TableCell>STATUT</TableCell>
                     <TableCell>DATE PAIEMENT</TableCell>
+                    {/* ✅ Colonne action visible seulement si plan ACCEPTE + canEdit */}
+                    {canEdit && plan.status === "ACCEPTE" && <TableCell>ACTION</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {plan.installments?.map((inst: InstallmentDTO) => (
+                  {installments.map((inst: InstallmentDTO) => (
                     <TableRow hover key={inst.id}>
                       <TableCell><Typography variant="body2" fontWeight="bold">{inst.installmentNumber}</Typography></TableCell>
                       <TableCell><Typography variant="body2">{inst.dueDate}</Typography></TableCell>
@@ -269,6 +310,25 @@ export default function PaymentPlanDetailDialog({
                       <TableCell><Typography variant="body2">{inst.paidAmount?.toFixed(2)} DH</Typography></TableCell>
                       <TableCell>{getInstallmentStatusLabel(inst.status)}</TableCell>
                       <TableCell><Typography variant="body2" color="text.secondary">{inst.paidDate ?? "—"}</Typography></TableCell>
+                      {/* ✅ Bouton "Marquer payée" : Agent + plan ACCEPTE + échéance EN_ATTENTE */}
+                      {canEdit && plan.status === "ACCEPTE" && (
+                        <TableCell>
+                          {inst.status === "EN_ATTENTE" ? (
+                            <Tooltip arrow title="Marquer comme payée">
+                              <IconButton
+                                color="success"
+                                size="small"
+                                onClick={() => handleMarkAsPaid(inst)}
+                                disabled={payingInstallmentId === inst.id}
+                              >
+                                <PaidIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="body2" color="text.disabled">—</Typography>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

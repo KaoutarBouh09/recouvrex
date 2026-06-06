@@ -54,3 +54,8 @@ export const downloadConversationPdf = async (sessionId: number): Promise<void> 
   link.remove();
   window.URL.revokeObjectURL(url);
 };
+
+// ✅ Supprimer une conversation expirée
+export const deleteConversation = async (sessionId: number): Promise<void> => {
+  await axiosInstance.delete(`/api/chat/conversations/${sessionId}`);
+};
