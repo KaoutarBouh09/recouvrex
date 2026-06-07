@@ -145,7 +145,7 @@ class PaymentPlanServiceImplTest {
     void createPaymentPlan_shouldThrowWhenCaseStatusBlocked() {
         // GIVEN
         Status blockedStatus = new Status();
-        blockedStatus.setStatus("Radié");
+        blockedStatus.setStatus("Radie");
         testCase.setStatus(blockedStatus);
 
         CreatePaymentPlanDTO dto = new CreatePaymentPlanDTO();
