@@ -159,7 +159,7 @@ class PaymentPlanServiceImplTest {
         // WHEN / THEN
         assertThatThrownBy(() -> paymentPlanService.createPaymentPlan(dto, 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Radié");
+                .hasMessageContaining("Radie");
     }
 
     // =====================================================================
