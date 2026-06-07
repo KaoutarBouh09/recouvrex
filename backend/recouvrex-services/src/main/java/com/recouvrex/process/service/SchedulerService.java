@@ -11,7 +11,7 @@ public class SchedulerService {
     private ReminderService reminderService;
 
     // Tous les jours à 3h
-    @Scheduled(cron = "0 0 3 * * ?")
+   @Scheduled(cron = "0 */2 * * * ?")
     public void scheduleDailyReminder() {
         reminderService.sendOverdueReminders();
         reminderService.sendInstallmentReminders();
