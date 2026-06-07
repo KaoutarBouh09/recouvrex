@@ -10,8 +10,8 @@ public class SchedulerService {
     @Autowired
     private ReminderService reminderService;
 
-    // Tous les jours à 9h
-    @Scheduled(cron = "0 0 9 * * ?")
+    // Tous les jours à 3h
+    @Scheduled(cron = "0 0 3 * * ?")
     public void scheduleDailyReminder() {
         reminderService.sendOverdueReminders();
         reminderService.sendInstallmentReminders();
