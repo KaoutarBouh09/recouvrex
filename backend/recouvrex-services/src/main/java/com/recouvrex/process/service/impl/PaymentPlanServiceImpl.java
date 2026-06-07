@@ -44,9 +44,10 @@ public class PaymentPlanServiceImpl implements PaymentPlanService {
 
     // ✅ Statuts de dossier qui bloquent la création/relance d'un plan de paiement
     private static final List<String> BLOCKED_STATUSES = List.of(
-        "Radié",
-        "Terminé",
-        "Saisie conservation immobilière initiée"
+        "Radie",
+        "Termine",
+        "Deces",
+        "Invalidite"
     );
 
     @Override
