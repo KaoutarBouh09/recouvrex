@@ -53,7 +53,17 @@ public class ChatService {
             .status(ChatSessionStatus.ACTIVE)
             .build();
 
-        return chatSessionRepository.save(session);
+        chatSessionRepository.save(session);
+
+        // ✅ FIX 1 : Sauvegarder le message de bienvenue en BDD
+        ConversationMessage welcome = ConversationMessage.builder()
+            .session(session)
+            .sender(MessageSender.AI)
+            .message("Bonjour ! Je suis votre conseiller virtuel Recouvrex. Je suis ici pour vous aider à régulariser votre situation. Comment puis-je vous aider ?")
+            .build();
+        conversationMessageRepository.save(welcome);
+
+        return session;
     }
 
     // ── Valider token + PIN ──
@@ -73,7 +83,7 @@ public class ChatService {
             throw new RuntimeException("Code PIN incorrect");
         }
 
-        // ✅ FIX : Si le client rouvre une session clôturée → on la réactive
+        // ✅ FIX 2 : Si le client rouvre une session clôturée → on la réactive
         if (session.getStatus() == ChatSessionStatus.CLOSED) {
             session.setStatus(ChatSessionStatus.ACTIVE);
             session.setClosedAt(null);
@@ -93,14 +103,14 @@ public class ChatService {
         String montant = case1.getTotalAmount() != null
             ? case1.getTotalAmount().toString() : "inconnu";
 
-        // ✅ FIX : sauvegarder le message client en premier
+        // ✅ FIX 3 : sauvegarder le message client avant de charger l'historique
         ConversationMessage clientMsg = ConversationMessage.builder()
             .session(session)
             .sender(MessageSender.CLIENT)
             .message(request.getMessage())
             .build();
         conversationMessageRepository.save(clientMsg);
-        conversationMessageRepository.flush(); // forcer la persistance
+        conversationMessageRepository.flush();
 
         // Charger l'historique APRES avoir sauvegardé le message client
         List<ConversationMessage> history =

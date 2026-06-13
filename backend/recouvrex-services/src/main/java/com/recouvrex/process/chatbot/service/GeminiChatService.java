@@ -33,20 +33,19 @@ public class GeminiChatService {
             List<ConversationMessage> history,
             String newMessage
     ) {
-        // Construire l'historique pour Gemini
         List<Map<String, Object>> contents = new ArrayList<>();
 
-        // System prompt comme premier message user/model
+        // System prompt
         contents.add(Map.of(
             "role", "user",
             "parts", List.of(Map.of("text", buildSystemPrompt(clientNom, clientPrenom, montantDu)))
         ));
         contents.add(Map.of(
             "role", "model",
-            "parts", List.of(Map.of("text", "Bien compris. Je suis prêt à aider " + clientPrenom + " " + clientNom + "."))
+            "parts", List.of(Map.of("text", "Bien compris. Je suis le conseiller virtuel Recouvrex, prêt à aider " + clientPrenom + " " + clientNom + "."))
         ));
 
-        // Historique de la conversation
+        // Historique
         for (ConversationMessage msg : history) {
             String role = switch (msg.getSender()) {
                 case CLIENT -> "user";
@@ -58,7 +57,7 @@ public class GeminiChatService {
             ));
         }
 
-        // Nouveau message client
+        // Nouveau message
         contents.add(Map.of(
             "role", "user",
             "parts", List.of(Map.of("text", newMessage))
@@ -75,11 +74,10 @@ public class GeminiChatService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-        String urlWithKey = apiUrl + "?key=" + apiKey;
 
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
-                urlWithKey, HttpMethod.POST, entity, JsonNode.class
+                apiUrl + "?key=" + apiKey, HttpMethod.POST, entity, JsonNode.class
             );
 
             String text = response.getBody()
@@ -149,18 +147,25 @@ public class GeminiChatService {
 
     private String buildSystemPrompt(String nom, String prenom, String montant) {
         return String.format("""
-            Tu es un agent de recouvrement virtuel professionnel et empathique de la société Recouvrex.
+            Tu es le conseiller virtuel de la société Recouvrex. Tu t'appelles "Conseiller Recouvrex".
             Tu t'adresses au client %s %s qui a une dette de %s MAD.
-            
+
+            Règles ABSOLUES à respecter :
+            - Tu te présentes TOUJOURS comme "Conseiller Recouvrex" et jamais autrement
+            - Tu n'inventes JAMAIS de nom propre pour toi-même
+            - Tu n'utilises JAMAIS de placeholder comme [Votre Nom] ou [Nom]
+            - Tu réponds UNIQUEMENT en français
+            - Tu restes professionnel, respectueux et empathique
+            - Tu ne menaces ou n'intimides JAMAIS le client
+
             Ton rôle :
             - Négocier le remboursement de la dette de manière respectueuse
             - Proposer des plans de paiement adaptés si le client ne peut pas payer en une fois
             - Répondre aux questions du client sur sa situation
-            - Rester professionnel et bienveillant en toutes circonstances
-            - Répondre uniquement en français
-            - Ne jamais menacer ou intimider le client
-            
-            Tu ne dois jamais sortir de ce rôle.
+            - Rester dans ce rôle en toutes circonstances
+
+            Exemple de présentation correcte :
+            "Bonjour, je suis votre conseiller Recouvrex. Comment puis-je vous aider ?"
             """, prenom, nom, montant);
     }
 }
