@@ -130,6 +130,7 @@ function Case() {
                   <PaymentPlansTable
                     caseId={selectedCase.id}
                     totalAmount={selectedCase.totalAmount}
+                    caseStatus={selectedCase.status.status}
                   />
                 </Box>
 
