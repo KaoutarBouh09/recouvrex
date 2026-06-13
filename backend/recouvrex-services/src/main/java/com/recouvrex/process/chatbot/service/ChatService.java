@@ -57,6 +57,7 @@ public class ChatService {
     }
 
     // ── Valider token + PIN ──
+    @Transactional
     public ChatSession validateAccess(String token, String pinCode) {
         ChatSession session = chatSessionRepository.findByToken(token)
             .orElseThrow(() -> new RuntimeException("Session introuvable"));
@@ -72,6 +73,14 @@ public class ChatService {
             throw new RuntimeException("Code PIN incorrect");
         }
 
+        // ✅ FIX : Si le client rouvre une session clôturée → on la réactive
+        if (session.getStatus() == ChatSessionStatus.CLOSED) {
+            session.setStatus(ChatSessionStatus.ACTIVE);
+            session.setClosedAt(null);
+            chatSessionRepository.save(session);
+            log.info("Session {} réactivée par le client", session.getId());
+        }
+
         return session;
     }
 
@@ -84,13 +93,16 @@ public class ChatService {
         String montant = case1.getTotalAmount() != null
             ? case1.getTotalAmount().toString() : "inconnu";
 
+        // ✅ FIX : sauvegarder le message client en premier
         ConversationMessage clientMsg = ConversationMessage.builder()
             .session(session)
             .sender(MessageSender.CLIENT)
             .message(request.getMessage())
             .build();
         conversationMessageRepository.save(clientMsg);
+        conversationMessageRepository.flush(); // forcer la persistance
 
+        // Charger l'historique APRES avoir sauvegardé le message client
         List<ConversationMessage> history =
             conversationMessageRepository.findBySessionOrderByTimestampAsc(session);
 
@@ -217,7 +229,6 @@ public class ChatService {
         ChatSession session = chatSessionRepository.findById(sessionId)
             .orElseThrow(() -> new RuntimeException("Session introuvable avec l'id : " + sessionId));
 
-        // Seules les conversations EXPIRED peuvent être supprimées
         if (session.getStatus() != ChatSessionStatus.EXPIRED) {
             throw new IllegalStateException(
                 "Impossible de supprimer une conversation avec le statut : "
@@ -226,7 +237,6 @@ public class ChatService {
             );
         }
 
-        // Supprimer les messages puis la session
         conversationMessageRepository.deleteBySession(session);
         chatSessionRepository.delete(session);
 
