@@ -61,16 +61,20 @@ const getStatusLabel = (status: string): JSX.Element => {
   return <Label color={info.color as any}>{info.text}</Label>;
 };
 
+// ✅ Statuts bloquants — même liste que le backend
+const BLOCKED_STATUSES = ["Radie", "Termine", "Deces", "Invalidite"];
+
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
 interface PaymentPlansTableProps {
   caseId: number;
   totalAmount: number;
+  caseStatus: string; // ✅ ajouté
 }
 
 // ─── COMPOSANT ────────────────────────────────────────────────────────────────
 
-const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) => {
+const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount, caseStatus }) => {
   const { isAdmin, isRegionResponsable, isRecoveryAgent } = useContext(UserContext);
 
   const [plans, setPlans] = useState<PaymentPlanResponseDTO[]>([]);
@@ -81,10 +85,10 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
   const [selectedPlan, setSelectedPlan] = useState<PaymentPlanResponseDTO | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // ✅ Permissions selon le rôle
-  const canCreate = isRecoveryAgent(); // Agent uniquement
+  // ✅ Permissions selon le rôle ET le statut du cas
+  const canCreate = isRecoveryAgent() && !BLOCKED_STATUSES.includes(caseStatus);
   const canValidate = isRegionResponsable() || isAdmin();
-  const canEdit = isRecoveryAgent(); // Agent uniquement
+  const canEdit = isRecoveryAgent();
 
   // ── État pour la suppression ──
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -198,7 +202,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
     }
   };
 
-  // Aperçu recalculé en temps réel dans le dialog de modification
   const editNb = parseInt(editNbInstallments) || 0;
   const editRate = parseFloat(editInterestRate) || 0;
   const editInterestAmt = planToEdit ? planToEdit.totalAmount * (editRate / 100) : 0;
@@ -218,6 +221,7 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
           </Grid>
           <Grid item sm={4}>
             <Stack sx={{ alignItems: "end", justifyContent: "flex-end", mr: 2, mt: 1, flexDirection: "row", gap: 1 }}>
+              {/* ✅ Bouton visible uniquement si agent ET statut non bloquant */}
               {canCreate && (
                 <CreatePaymentPlanDialog
                   caseId={caseId}
@@ -311,7 +315,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
                             <DownloadIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {/* ✅ Modifier : Agent + statut EN_COURS */}
                         {canEdit && plan.status === "EN_COURS" && (
                           <Tooltip arrow title="Modifier le plan">
                             <IconButton color="warning" size="small" onClick={() => handleEditClick(plan)}>
@@ -319,7 +322,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
                             </IconButton>
                           </Tooltip>
                         )}
-                        {/* ✅ Supprimer : Agent + statut EN_COURS ou REJETE */}
                         {canEdit && (plan.status === "EN_COURS" || plan.status === "REJETE") && (
                           <Tooltip arrow title="Supprimer le plan">
                             <IconButton color="error" size="small" onClick={() => handleDeleteClick(plan)}>
@@ -349,7 +351,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
         </Box>
       </Card>
 
-      {/* ✅ Dialog détail */}
       {selectedPlan && (
         <PaymentPlanDetailDialog
           open={detailOpen}
@@ -362,7 +363,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
         />
       )}
 
-      {/* ✅ Dialog confirmation suppression */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Confirmer la suppression</DialogTitle>
         <DialogContent>
@@ -380,7 +380,6 @@ const PaymentPlansTable: FC<PaymentPlansTableProps> = ({ caseId, totalAmount }) 
         </DialogActions>
       </Dialog>
 
-      {/* ✅ Dialog modification plan */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h3">Modifier le plan — {planToEdit?.agreementCode}</Typography>
